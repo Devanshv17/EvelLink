@@ -11,6 +11,10 @@ import 'screens/home/home_screen.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
+  final authService = AuthService();
+  await authService.initialize(
+    serverClientId: '125365562118-r6f660pn8h1fabtl1qb4ag579qa4ojce.apps.googleusercontent.com',
+  );
   runApp(const FestiveLinkApp());
 }
 

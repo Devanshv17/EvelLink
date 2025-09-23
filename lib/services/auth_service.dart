@@ -14,6 +14,22 @@ class AuthService {
 
   Stream<User?> get authStateChanges => _auth.authStateChanges();
 
+  /// Initialize GoogleSignIn (call this once at app startup)
+  Future<void> initialize({
+    String? clientId,
+    String? serverClientId,
+  }) async {
+    try {
+      await _googleSignIn.initialize(
+
+        clientId: clientId ?? '',
+        serverClientId: serverClientId ?? '',
+      );
+    } catch (e) {
+      print('GoogleSignIn initialization error: $e');
+    }
+  }
+
   Future<User?> signInWithGoogle() async {
     try {
       final GoogleSignInAccount googleUser = await _googleSignIn.authenticate();

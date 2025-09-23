@@ -15,7 +15,7 @@ class DatabaseService {
   Future<UserModel?> getUser(String uid) async {
     final doc = await _firestore.collection('users').doc(uid).get();
     if (doc.exists) {
-      return UserModel.fromMap(doc.data()!, doc.id);
+      return UserModel.fromMap(doc.data()!);
     }
     return null;
   }
@@ -43,18 +43,18 @@ class DatabaseService {
   Future<List<UserModel>> getEventUsers(String eventId, String currentUserId) async {
     final event = await getEvent(eventId);
     if (event == null) return [];
-    
+
     final otherUsers = event.activeUsers.where((uid) => uid != currentUserId).toList();
-    
+
     if (otherUsers.isEmpty) return [];
 
     final usersQuery = await _firestore
         .collection('users')
         .where('uid', whereIn: otherUsers)
         .get();
-    
+
     return usersQuery.docs
-        .map((doc) => UserModel.fromMap(doc.data(), doc.id))
+        .map((doc) => UserModel.fromMap(doc.data()))
         .toList();
   }
 
@@ -67,7 +67,7 @@ class DatabaseService {
         .doc(swiperId);
 
     final field = isHidden ? 'hiddenLikes' : 'likes';
-    
+
     await docRef.set({
       field: {swipedId: FieldValue.serverTimestamp()}
     }, SetOptions(merge: true));
@@ -92,7 +92,7 @@ class DatabaseService {
         .collection('swipes')
         .doc(userId)
         .get();
-    
+
     return doc.data();
   }
 
@@ -102,9 +102,9 @@ class DatabaseService {
         .doc(eventId)
         .collection('swipes')
         .get();
-    
+
     List<String> likedBy = [];
-    
+
     for (var doc in snapshot.docs) {
       final data = doc.data();
       if (data['likes'] != null && data['likes'][userId] != null) {
@@ -114,7 +114,7 @@ class DatabaseService {
         likedBy.add(doc.id);
       }
     }
-    
+
     return likedBy;
   }
 
@@ -125,7 +125,7 @@ class DatabaseService {
         .collection('swipes')
         .doc(likerId)
         .get();
-    
+
     final data = doc.data();
     return data?['hiddenLikes']?[likedId] != null;
   }
@@ -133,7 +133,7 @@ class DatabaseService {
   // Match operations
   Future<void> createMatch(String user1Id, String user2Id) async {
     final matchId = _generateMatchId(user1Id, user2Id);
-    
+
     await _firestore.collection('matches').doc(matchId).set({
       'users': [user1Id, user2Id],
       'createdAt': FieldValue.serverTimestamp(),
@@ -152,7 +152,7 @@ class DatabaseService {
         .where('users', arrayContains: userId)
         .orderBy('createdAt', descending: true)
         .get();
-    
+
     return snapshot.docs
         .map((doc) => MatchModel.fromMap(doc.data(), doc.id))
         .toList();
@@ -184,8 +184,8 @@ class DatabaseService {
         .orderBy('timestamp', descending: true)
         .snapshots()
         .map((snapshot) => snapshot.docs
-            .map((doc) => MessageModel.fromMap(doc.data(), doc.id))
-            .toList());
+        .map((doc) => MessageModel.fromMap(doc.data(), doc.id))
+        .toList());
   }
 
   String _generateMatchId(String user1Id, String user2Id) {

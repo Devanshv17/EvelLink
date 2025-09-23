@@ -17,9 +17,9 @@ class UserModel {
     required this.createdAt,
   });
 
-  factory UserModel.fromMap(Map<String, dynamic> map, String id) {
+  factory UserModel.fromMap(Map<String, dynamic> map) {
     return UserModel(
-      uid: map['uid'] ?? id,
+      uid: map['uid'] ?? '',
       name: map['name'] ?? '',
       age: map['age'] ?? 0,
       bio: map['bio'] ?? '',
