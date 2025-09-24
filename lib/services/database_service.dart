@@ -9,6 +9,10 @@ class DatabaseService {
     await _firestore.collection('users').doc(user.uid).set(user.toMap());
   }
 
+  Future<void> updateUser(UserModel user) async {
+    await _firestore.collection('users').doc(user.uid).update(user.toMap());
+  }
+
   Future<UserModel?> getUser(String uid) async {
     final doc = await _firestore.collection('users').doc(uid).get();
     if (doc.exists) {
@@ -81,8 +85,6 @@ class DatabaseService {
   }
 
   // Interaction operations
-
-  /// Records a like and returns true if it resulted in a match.
   Future<bool> recordLike(String eventId, String swiperId, String swipedId, {bool isHidden = false}) async {
     final docRef = _firestore
         .collection('interactions')
@@ -96,8 +98,8 @@ class DatabaseService {
       field: {swipedId: FieldValue.serverTimestamp()}
     }, SetOptions(merge: true));
 
-    // Check for mutual like and return the result.
-    return _checkForMatch(eventId, swiperId, swipedId);
+    // Check for mutual like to create match
+    return await _checkForMatch(eventId, swiperId, swipedId);
   }
 
   Future<void> recordPass(String eventId, String swiperId, String swipedId) async {
@@ -161,8 +163,8 @@ class DatabaseService {
     return hiddenLikedBy;
   }
 
-  /// Checks if a like is mutual and creates a match if it is. Returns true if a match was made.
   Future<bool> _checkForMatch(String eventId, String swiperId, String swipedId) async {
+    // Check if the swiped user also liked the swiper
     final swipedUserDoc = await _firestore
         .collection('interactions')
         .doc(eventId)
@@ -173,9 +175,8 @@ class DatabaseService {
     if (swipedUserDoc.exists) {
       final data = swipedUserDoc.data()!;
       final likes = data['likes'] as Map<String, dynamic>? ?? {};
-      final hiddenLikes = data['hiddenLikes'] as Map<String, dynamic>? ?? {};
 
-      if (likes.containsKey(swiperId) || hiddenLikes.containsKey(swiperId)) {
+      if (likes.containsKey(swiperId)) {
         // It's a match!
         await _createMatch(eventId, swiperId, swipedId);
         return true;
@@ -264,3 +265,4 @@ class DatabaseService {
     await batch.commit();
   }
 }
+

@@ -86,7 +86,7 @@ class UserProvider with ChangeNotifier {
         finalUser = updatedUser.copyWith(photoUrls: allPhotos);
       }
 
-      await _databaseService.createUser(finalUser); // This will update if exists
+      await _databaseService.updateUser(finalUser); // Use updateUser instead of createUser
       _currentUser = finalUser;
       notifyListeners();
       return true;

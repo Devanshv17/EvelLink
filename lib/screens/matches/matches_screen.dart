@@ -88,9 +88,9 @@ class _MatchesScreenState extends State<MatchesScreen> {
               size: 80,
               color: AppConstants.textSecondary,
             ),
-            
+
             const SizedBox(height: 24),
-            
+
             Text(
               'No Matches Yet',
               style: TextStyle(
@@ -99,9 +99,9 @@ class _MatchesScreenState extends State<MatchesScreen> {
                 color: AppConstants.textPrimary,
               ),
             ),
-            
+
             const SizedBox(height: 8),
-            
+
             Text(
               'When you and someone else like each other,\nyou\'ll see them here',
               style: TextStyle(
@@ -123,19 +123,25 @@ class _MatchesScreenState extends State<MatchesScreen> {
         leading: CircleAvatar(
           radius: 30,
           backgroundColor: Helpers.getRandomColor(user.uid),
-          backgroundImage: user.photoUrls.isNotEmpty 
-              ? NetworkImage(user.photoUrls.first) 
-              : null,
-          child: user.photoUrls.isEmpty 
-              ? Text(
-                  user.name[0].toUpperCase(),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
-                )
-              : null,
+          child: user.photoUrls.isNotEmpty
+              ? ClipOval(
+            child: SizedBox.fromSize(
+              size: const Size.fromRadius(30), // Image size
+              child: PrivateNetworkImage(
+                imageUrl: user.photoUrls.first,
+                fit: BoxFit.cover,
+                seedForFallbackColor: user.uid,
+              ),
+            ),
+          )
+              : Text(
+            user.name.isNotEmpty ? user.name[0].toUpperCase() : '?',
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
         ),
         title: Text(
           user.name,
@@ -206,3 +212,4 @@ class _MatchesScreenState extends State<MatchesScreen> {
     );
   }
 }
+

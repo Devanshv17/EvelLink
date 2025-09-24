@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../models/models.dart';
 import '../../providers/providers.dart';
 import '../../utils/utils.dart';
+import '../../widgets/widgets.dart';
 
 class ChatScreen extends StatefulWidget {
   final MatchModel match;
@@ -85,23 +86,27 @@ class _ChatScreenState extends State<ChatScreen> {
             CircleAvatar(
               radius: 18,
               backgroundColor: Helpers.getRandomColor(widget.otherUser.uid),
-              backgroundImage: widget.otherUser.photoUrls.isNotEmpty 
-                  ? NetworkImage(widget.otherUser.photoUrls.first) 
-                  : null,
-              child: widget.otherUser.photoUrls.isEmpty 
-                  ? Text(
-                      widget.otherUser.name[0].toUpperCase(),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    )
-                  : null,
+              child: widget.otherUser.photoUrls.isNotEmpty
+                  ? ClipOval(
+                child: SizedBox.fromSize(
+                  size: const Size.fromRadius(18), // Image size
+                  child: PrivateNetworkImage(
+                    imageUrl: widget.otherUser.photoUrls.first,
+                    fit: BoxFit.cover,
+                    seedForFallbackColor: widget.otherUser.uid,
+                  ),
+                ),
+              )
+                  : Text(
+                widget.otherUser.name.isNotEmpty ? widget.otherUser.name[0].toUpperCase() : '?',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
-            
             const SizedBox(width: 12),
-            
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -148,14 +153,14 @@ class _ChatScreenState extends State<ChatScreen> {
                   itemBuilder: (context, index) {
                     final message = messages[index];
                     final isMe = message.senderId == currentUserId;
-                    
+
                     return _buildMessageBubble(message, isMe);
                   },
                 );
               },
             ),
           ),
-          
+
           // Message input
           _buildMessageInput(),
         ],
@@ -173,23 +178,27 @@ class _ChatScreenState extends State<ChatScreen> {
             CircleAvatar(
               radius: 40,
               backgroundColor: Helpers.getRandomColor(widget.otherUser.uid),
-              backgroundImage: widget.otherUser.photoUrls.isNotEmpty 
-                  ? NetworkImage(widget.otherUser.photoUrls.first) 
-                  : null,
-              child: widget.otherUser.photoUrls.isEmpty 
-                  ? Text(
-                      widget.otherUser.name[0].toUpperCase(),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 32,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    )
-                  : null,
+              child: widget.otherUser.photoUrls.isNotEmpty
+                  ? ClipOval(
+                child: SizedBox.fromSize(
+                  size: const Size.fromRadius(40), // Image size
+                  child: PrivateNetworkImage(
+                    imageUrl: widget.otherUser.photoUrls.first,
+                    fit: BoxFit.cover,
+                    seedForFallbackColor: widget.otherUser.uid,
+                  ),
+                ),
+              )
+                  : Text(
+                widget.otherUser.name.isNotEmpty ? widget.otherUser.name[0].toUpperCase() : '?',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 32,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
-            
             const SizedBox(height: 16),
-            
             Text(
               'You matched with ${widget.otherUser.name}!',
               style: const TextStyle(
@@ -197,9 +206,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 fontWeight: FontWeight.bold,
               ),
             ),
-            
             const SizedBox(height: 8),
-            
             Text(
               'Start the conversation with a friendly message',
               style: TextStyle(
@@ -223,23 +230,28 @@ class _ChatScreenState extends State<ChatScreen> {
             CircleAvatar(
               radius: 16,
               backgroundColor: Helpers.getRandomColor(widget.otherUser.uid),
-              backgroundImage: widget.otherUser.photoUrls.isNotEmpty 
-                  ? NetworkImage(widget.otherUser.photoUrls.first) 
-                  : null,
-              child: widget.otherUser.photoUrls.isEmpty 
-                  ? Text(
-                      widget.otherUser.name[0].toUpperCase(),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    )
-                  : null,
+              child: widget.otherUser.photoUrls.isNotEmpty
+                  ? ClipOval(
+                child: SizedBox.fromSize(
+                  size: const Size.fromRadius(16), // Image size
+                  child: PrivateNetworkImage(
+                    imageUrl: widget.otherUser.photoUrls.first,
+                    fit: BoxFit.cover,
+                    seedForFallbackColor: widget.otherUser.uid,
+                  ),
+                ),
+              )
+                  : Text(
+                widget.otherUser.name.isNotEmpty ? widget.otherUser.name[0].toUpperCase() : '?',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
             const SizedBox(width: 8),
           ],
-          
           Flexible(
             child: Container(
               constraints: BoxConstraints(
@@ -250,8 +262,8 @@ class _ChatScreenState extends State<ChatScreen> {
                 vertical: 10,
               ),
               decoration: BoxDecoration(
-                color: isMe 
-                    ? AppConstants.primaryColor 
+                color: isMe
+                    ? AppConstants.primaryColor
                     : Colors.grey.shade200,
                 borderRadius: BorderRadius.circular(20).copyWith(
                   bottomRight: isMe ? const Radius.circular(4) : null,
@@ -272,8 +284,8 @@ class _ChatScreenState extends State<ChatScreen> {
                   Text(
                     Helpers.formatTime(message.timestamp),
                     style: TextStyle(
-                      color: isMe 
-                          ? Colors.white.withOpacity(0.7) 
+                      color: isMe
+                          ? Colors.white.withOpacity(0.7)
                           : AppConstants.textSecondary,
                       fontSize: 12,
                     ),
@@ -323,9 +335,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 onSubmitted: (_) => _sendMessage(),
               ),
             ),
-            
             const SizedBox(width: 8),
-            
             Consumer<ChatProvider>(
               builder: (context, chatProvider, child) {
                 return FloatingActionButton(
@@ -333,18 +343,18 @@ class _ChatScreenState extends State<ChatScreen> {
                   mini: true,
                   backgroundColor: AppConstants.primaryColor,
                   child: chatProvider.isLoading
-                      ? SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                          ),
-                        )
+                      ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                  )
                       : const Icon(
-                          Icons.send,
-                          color: Colors.white,
-                        ),
+                    Icons.send,
+                    color: Colors.white,
+                  ),
                 );
               },
             ),
@@ -354,3 +364,4 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 }
+

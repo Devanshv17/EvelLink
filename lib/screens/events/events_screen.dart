@@ -6,6 +6,7 @@ import '../../models/models.dart';
 import '../../utils/utils.dart';
 import '../../widgets/widgets.dart';
 import 'qr_scanner_screen.dart';
+import '../profile/profile_edit_screen.dart';
 import 'event_participants_screen.dart';
 
 class EventsScreen extends StatefulWidget {
@@ -188,7 +189,12 @@ class _EventsScreenState extends State<EventsScreen> {
                 title: const Text('Edit Profile'),
                 onTap: () {
                   Navigator.pop(context);
-                  // TODO: Navigate to edit profile
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const ProfileEditScreen(),
+                    ),
+                  );
                 },
               ),
               ListTile(
