@@ -1,72 +1,49 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
-import 'providers/user_provider.dart';
-import 'providers/event_provider.dart';
-import 'providers/likes_provider.dart';
-import 'screens/auth/login_screen.dart';
-import 'services/auth_service.dart';
-import 'screens/home/home_screen.dart';
+import 'providers/providers.dart';
+import 'services/services.dart';
+import 'screens/auth/auth_wrapper.dart';
+import 'utils/utils.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
+
+  // Initialize Google Sign-In with server client ID
   final authService = AuthService();
-  await authService.initialize(
-    serverClientId: '125365562118-r6f660pn8h1fabtl1qb4ag579qa4ojce.apps.googleusercontent.com',
-  );
-  runApp(const FestiveLinkApp());
+
+  runApp(FestiveLinkApp(authService: authService));
 }
 
 class FestiveLinkApp extends StatelessWidget {
-  const FestiveLinkApp({super.key});
+  final AuthService authService;
+
+  const FestiveLinkApp({
+    super.key,
+    required this.authService,
+  });
 
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
+        // Provide AuthService instance
+        Provider<AuthService>.value(value: authService),
+
+        // State providers
         ChangeNotifierProvider(create: (_) => UserProvider()),
         ChangeNotifierProvider(create: (_) => EventProvider()),
         ChangeNotifierProvider(create: (_) => LikesProvider()),
+        ChangeNotifierProvider(create: (_) => MatchProvider()),
+        ChangeNotifierProvider(create: (_) => ChatProvider()),
       ],
       child: MaterialApp(
-        title: 'FestiveLink',
-        theme: ThemeData.dark().copyWith(
-          primaryColor: Colors.pink,
-          scaffoldBackgroundColor: const Color(0xFF121212),
-          cardColor: const Color(0xFF1E1E1E),
-          appBarTheme: const AppBarTheme(
-            backgroundColor: Color(0xFF1E1E1E),
-            elevation: 0,
-          ),
-        ),
-        home: const AuthWrapper(),
+        title: AppConstants.appName,
+        theme: AppTheme.lightTheme,
         debugShowCheckedModeBanner: false,
+        home: const AuthWrapper(),
       ),
-    );
-  }
-}
-
-class AuthWrapper extends StatelessWidget {
-  const AuthWrapper({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return StreamBuilder(
-      stream: AuthService().authStateChanges,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
-          );
-        }
-        
-        if (snapshot.hasData) {
-          return const HomeScreen();
-        } else {
-          return const LoginScreen();
-        }
-      },
     );
   }
 }

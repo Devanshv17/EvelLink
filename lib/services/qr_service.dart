@@ -1,31 +1,33 @@
-import 'package:flutter/services.dart';
+import 'dart:convert';
+import '../models/models.dart';
 
 class QRService {
-  static const String _eventIdPrefix = 'CULTFEST2025_';
-
-  static bool isValidEventQR(String qrData) {
-    return qrData.startsWith(_eventIdPrefix) && qrData.length > _eventIdPrefix.length;
-  }
-
-  static String? extractEventId(String qrData) {
-    if (isValidEventQR(qrData)) {
-      return qrData;
+  static QRDataModel? parseQRData(String qrData) {
+    try {
+      // Try parsing as JSON first
+      final Map<String, dynamic> data = json.decode(qrData);
+      return QRDataModel.fromMap(data);
+    } catch (e) {
+      // If JSON parsing fails, treat as simple event ID
+      print('QR data parsing error: $e');
+      return null;
     }
-    return null;
   }
 
-  static Future<void> hapticFeedback() async {
-    await HapticFeedback.mediumImpact();
+  static String generateQRData(QRDataModel qrData) {
+    return json.encode(qrData.toMap());
   }
 
-  // For testing purposes - generates sample QR codes
-  static List<String> getSampleEventIds() {
-    return [
-      'CULTFEST2025_STARLIGHT_BALL',
-      'CULTFEST2025_ROCK_CONCERT',
-      'CULTFEST2025_DANCE_NIGHT',
-      'CULTFEST2025_CULTURAL_EVENING',
-      'CULTFEST2025_MUSIC_FESTIVAL',
-    ];
+  static bool isValidQRFormat(String qrData) {
+    try {
+      final data = json.decode(qrData);
+      return data is Map<String, dynamic> && 
+             data.containsKey('eventId') &&
+             data.containsKey('eventName') &&
+             data.containsKey('startTime') &&
+             data.containsKey('endTime');
+    } catch (e) {
+      return false;
+    }
   }
 }

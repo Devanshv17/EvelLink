@@ -2,15 +2,19 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
-import '../../models/user.dart';
-import '../../providers/user_provider.dart';
-import '../../services/auth_service.dart';
-import '../../services/storage_service.dart';
-import '../../widgets/interest_chip.dart';
-import '../home/home_screen.dart';
+import '../../models/models.dart';
+import '../../providers/providers.dart';
+import '../../services/services.dart';
+import '../../utils/utils.dart';
+import '../../widgets/widgets.dart';
 
 class ProfileCreationScreen extends StatefulWidget {
-  const ProfileCreationScreen({super.key});
+  final ProfileType profileType;
+
+  const ProfileCreationScreen({
+    super.key,
+    required this.profileType,
+  });
 
   @override
   State<ProfileCreationScreen> createState() => _ProfileCreationScreenState();
@@ -21,21 +25,52 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
   final _nameController = TextEditingController();
   final _ageController = TextEditingController();
   final _bioController = TextEditingController();
-  
-  final StorageService _storageService = StorageService();
-  final AuthService _authService = AuthService();
-  
+  final _locationController = TextEditingController();
+  final _occupationController = TextEditingController();
+  final _educationController = TextEditingController();
+
   List<XFile> _selectedImages = [];
   List<String> _selectedInterests = [];
-  bool _isLoading = false;
+  int _currentStep = 0;
 
-  final List<String> _availableInterests = [
-    'Music', 'Dance', 'Tech', 'Art', 'Gaming', 'Sports', 'Reading', 'Movies',
-    'Photography', 'Travel', 'Food', 'Fashion', 'Fitness', 'Nature', 'Comedy'
+  final List<String> _stepTitles = [
+    'Basic Info',
+    'Photos',
+    'Interests',
+    'Additional Details',
   ];
 
+  @override
+  void initState() {
+    super.initState();
+    _nameController.addListener(_onInputChanged);
+    _ageController.addListener(_onInputChanged);
+    _bioController.addListener(_onInputChanged);
+  }
+
+  void _onInputChanged() {
+    setState(() {
+      // Refresh UI when input text changes to enable/disable buttons correctly
+    });
+  }
+
+  @override
+  void dispose() {
+    _nameController.removeListener(_onInputChanged);
+    _ageController.removeListener(_onInputChanged);
+    _bioController.removeListener(_onInputChanged);
+    _nameController.dispose();
+    _ageController.dispose();
+    _bioController.dispose();
+    _locationController.dispose();
+    _occupationController.dispose();
+    _educationController.dispose();
+    super.dispose();
+  }
+
   Future<void> _pickImages() async {
-    final images = await _storageService.pickImages(maxImages: 4);
+    final StorageService storageService = StorageService();
+    final images = await storageService.pickImages(maxImages: 6);
     setState(() {
       _selectedImages = images;
     });
@@ -45,244 +80,503 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
     setState(() {
       if (_selectedInterests.contains(interest)) {
         _selectedInterests.remove(interest);
-      } else {
+      } else if (_selectedInterests.length < 10) {
         _selectedInterests.add(interest);
       }
     });
   }
 
+  bool _canContinue() {
+    switch (_currentStep) {
+      case 0:
+        return _nameController.text.trim().isNotEmpty &&
+            _ageController.text.trim().isNotEmpty &&
+            _bioController.text.trim().isNotEmpty;
+      case 1:
+        return _selectedImages.isNotEmpty;
+      case 2:
+        return _selectedInterests.length >= 3;
+      case 3:
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  void _nextStep() {
+    if (_currentStep < _stepTitles.length - 1) {
+      setState(() {
+        _currentStep++;
+      });
+    } else {
+      _createProfile();
+    }
+  }
+
+  void _previousStep() {
+    if (_currentStep > 0) {
+      setState(() {
+        _currentStep--;
+      });
+    }
+  }
+
   Future<void> _createProfile() async {
     if (!_formKey.currentState!.validate()) return;
-    if (_selectedImages.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select at least one photo')),
-      );
-      return;
-    }
-    if (_selectedInterests.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select at least one interest')),
-      );
-      return;
-    }
 
-    setState(() {
-      _isLoading = true;
-    });
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
 
-    try {
-      // Upload photos
-      final photoUrls = await _storageService.uploadUserPhotos(
-        _authService.currentUser!.uid,
-        _selectedImages,
-      );
+    if (!authService.isSignedIn) return;
 
-      // Create user model
-      final user = UserModel(
-        uid: _authService.currentUser!.uid,
-        name: _nameController.text.trim(),
-        age: int.parse(_ageController.text.trim()),
-        bio: _bioController.text.trim(),
-        photoUrls: photoUrls,
-        interests: _selectedInterests,
-        createdAt: DateTime.now(),
-      );
+    final user = UserModel(
+      uid: authService.currentUser!.uid,
+      name: _nameController.text.trim(),
+      age: int.parse(_ageController.text.trim()),
+      bio: _bioController.text.trim(),
+      photoUrls: [],
+      interests: _selectedInterests,
+      profileType: widget.profileType,
+      createdAt: DateTime.now(),
+      location:
+      _locationController.text.trim().isNotEmpty ? _locationController.text.trim() : null,
+      occupation: _occupationController.text.trim().isNotEmpty
+          ? _occupationController.text.trim()
+          : null,
+      education:
+      _educationController.text.trim().isNotEmpty ? _educationController.text.trim() : null,
+    );
 
-      // Save to database
-      final userProvider = Provider.of<UserProvider>(context, listen: false);
-      final success = await userProvider.createUserProfile(user);
+    final success = await userProvider.createProfile(user, _selectedImages);
 
-      if (success && mounted) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const HomeScreen()),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to create profile')),
-        );
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
+    if (success && mounted) {
+      Navigator.of(context).popUntil((route) => route.isFirst);
+    } else if (mounted) {
+      Helpers.showSnackBar(
+        context,
+        userProvider.error ?? 'Failed to create profile',
+        isError: true,
       );
     }
-
-    setState(() {
-      _isLoading = false;
-    });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Create Profile'),
-        automaticallyImplyLeading: false,
+        title: Text(_stepTitles[_currentStep]),
+        leading: _currentStep > 0
+            ? IconButton(
+          onPressed: _previousStep,
+          icon: const Icon(Icons.arrow_back),
+        )
+            : null,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Name field
-              TextFormField(
-                controller: _nameController,
-                decoration: const InputDecoration(
-                  labelText: 'Name',
-                  border: OutlineInputBorder(),
-                ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter your name';
-                  }
-                  return null;
-                },
+      body: Form(
+        key: _formKey,
+        child: Column(
+          children: [
+            LinearProgressIndicator(
+              value: (_currentStep + 1) / _stepTitles.length,
+              backgroundColor: Colors.grey.shade200,
+              valueColor: AlwaysStoppedAnimation<Color>(AppConstants.primaryColor),
+            ),
+            Expanded(
+              child: Padding(
+                padding: AppConstants.screenPadding,
+                child: _buildStepContent(),
               ),
-              const SizedBox(height: 16),
-
-              // Age field
-              TextFormField(
-                controller: _ageController,
-                decoration: const InputDecoration(
-                  labelText: 'Age',
-                  border: OutlineInputBorder(),
-                ),
-                keyboardType: TextInputType.number,
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter your age';
-                  }
-                  final age = int.tryParse(value);
-                  if (age == null || age < 18) {
-                    return 'You must be at least 18 years old';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-
-              // Bio field
-              TextFormField(
-                controller: _bioController,
-                decoration: const InputDecoration(
-                  labelText: 'Bio',
-                  border: OutlineInputBorder(),
-                  hintText: 'Tell us about yourself...',
-                ),
-                maxLines: 3,
-                maxLength: 150,
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter a bio';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 24),
-
-              // Photos section
-              const Text(
-                'Photos (1-4 required)',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 12),
-              
-              GestureDetector(
-                onTap: _pickImages,
-                child: Container(
-                  height: 200,
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Colors.grey),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: _selectedImages.isEmpty
-                      ? const Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.add_photo_alternate, size: 50),
-                              SizedBox(height: 8),
-                              Text('Tap to add photos'),
-                            ],
-                          ),
-                        )
-                      : GridView.builder(
-                          padding: const EdgeInsets.all(8),
-                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 2,
-                            mainAxisSpacing: 8,
-                            crossAxisSpacing: 8,
-                          ),
-                          itemCount: _selectedImages.length,
-                          itemBuilder: (context, index) {
-                            return ClipRRect(
-                              borderRadius: BorderRadius.circular(8),
-                              child: Image.file(
-                                File(_selectedImages[index].path),
-                                fit: BoxFit.cover,
-                              ),
-                            );
-                          },
+            ),
+            Container(
+              padding: AppConstants.screenPadding,
+              child: Consumer<UserProvider>(
+                builder: (context, userProvider, child) {
+                  return SizedBox(
+                    width: double.infinity,
+                    height: 56,
+                    child: ElevatedButton(
+                      onPressed: userProvider.isLoading || !_canContinue()
+                          ? null
+                          : _nextStep,
+                      child: userProvider.isLoading
+                          ? const CircularProgressIndicator(color: Colors.white)
+                          : Text(
+                        _currentStep == _stepTitles.length - 1
+                            ? 'Create Profile'
+                            : 'Continue',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
                         ),
-                ),
-              ),
-              const SizedBox(height: 24),
-
-              // Interests section
-              const Text(
-                'Interests',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 12),
-              
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: _availableInterests.map((interest) {
-                  final isSelected = _selectedInterests.contains(interest);
-                  return InterestChip(
-                    label: interest,
-                    isSelected: isSelected,
-                    onTap: () => _toggleInterest(interest),
-                  );
-                }).toList(),
-              ),
-              const SizedBox(height: 40),
-
-              // Create Profile Button
-              SizedBox(
-                height: 50,
-                child: ElevatedButton(
-                  onPressed: _isLoading ? null : _createProfile,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.pink,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(25),
+                      ),
                     ),
-                  ),
-                  child: _isLoading
-                      ? const CircularProgressIndicator(color: Colors.white)
-                      : const Text(
-                          'Create Profile',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.white,
-                          ),
-                        ),
-                ),
+                  );
+                },
               ),
-            ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStepContent() {
+    switch (_currentStep) {
+      case 0:
+        return _buildBasicInfoStep();
+      case 1:
+        return _buildPhotosStep();
+      case 2:
+        return _buildInterestsStep();
+      case 3:
+        return _buildAdditionalDetailsStep();
+      default:
+        return Container();
+    }
+  }
+
+  Widget _buildBasicInfoStep() {
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 24),
+          Text(
+            'Tell us about yourself',
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: AppConstants.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 32),
+          TextFormField(
+            controller: _nameController,
+            decoration: const InputDecoration(
+              labelText: 'Name',
+              hintText: 'Your first name',
+            ),
+            validator: (value) {
+              if (value == null || !Helpers.isValidName(value)) {
+                return 'Please enter a valid name (min 2 characters)';
+              }
+              return null;
+            },
+          ),
+          const SizedBox(height: 20),
+          TextFormField(
+            controller: _ageController,
+            decoration: const InputDecoration(
+              labelText: 'Age',
+              hintText: 'Your age',
+            ),
+            keyboardType: TextInputType.number,
+            validator: (value) {
+              if (value == null || value.isEmpty) {
+                return 'Please enter your age';
+              }
+              final age = int.tryParse(value);
+              if (age == null || !Helpers.isValidAge(age)) {
+                return 'Please enter a valid age (18-100)';
+              }
+              return null;
+            },
+          ),
+          const SizedBox(height: 20),
+          TextFormField(
+            controller: _bioController,
+            decoration: const InputDecoration(
+              labelText: 'Bio',
+              hintText: 'Tell everyone about yourself...',
+              alignLabelWithHint: true,
+            ),
+            maxLines: 4,
+            maxLength: 500,
+            validator: (value) {
+              if (value == null || !Helpers.isValidBio(value)) {
+                return 'Please enter a bio (10-500 characters)';
+              }
+              return null;
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPhotosStep() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 24),
+        Text(
+          'Add your best photos',
+          style: TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+            color: AppConstants.textPrimary,
           ),
         ),
+        const SizedBox(height: 8),
+        Text(
+          'Add at least 2 photos. First photo will be your main photo.',
+          style: TextStyle(
+            fontSize: 16,
+            color: AppConstants.textSecondary,
+          ),
+        ),
+        const SizedBox(height: 32),
+        Expanded(
+          child: _selectedImages.isEmpty
+              ? _buildEmptyPhotosState()
+              : _buildPhotosGrid(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildEmptyPhotosState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            width: 120,
+            height: 120,
+            decoration: BoxDecoration(
+              color: AppConstants.primaryColor.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(60),
+            ),
+            child: Icon(
+              Icons.add_photo_alternate_outlined,
+              size: 60,
+              color: AppConstants.primaryColor,
+            ),
+          ),
+          const SizedBox(height: 24),
+          Text(
+            'No photos added yet',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: AppConstants.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Add photos to show your personality',
+            style: TextStyle(
+              color: AppConstants.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 32),
+          ElevatedButton.icon(
+            onPressed: _pickImages,
+            icon: const Icon(Icons.add_photo_alternate),
+            label: const Text('Add Photos'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPhotosGrid() {
+    return Column(
+      children: [
+        Expanded(
+          child: GridView.builder(
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 3,
+              crossAxisSpacing: 8,
+              mainAxisSpacing: 8,
+            ),
+            itemCount: _selectedImages.length + 1,
+            itemBuilder: (context, index) {
+              if (index == _selectedImages.length) {
+                // Add more button
+                return GestureDetector(
+                  onTap: _pickImages,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.grey.shade300),
+                    ),
+                    child: Icon(
+                      Icons.add,
+                      color: Colors.grey.shade600,
+                      size: 32,
+                    ),
+                  ),
+                );
+              }
+              return Stack(
+                children: [
+                  Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(8),
+                      image: DecorationImage(
+                        image: FileImage(File(_selectedImages[index].path)),
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                  ),
+                  if (index == 0)
+                    Positioned(
+                      top: 4,
+                      left: 4,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: AppConstants.primaryColor,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: const Text(
+                          'MAIN',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                  Positioned(
+                    top: 4,
+                    right: 4,
+                    child: GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          _selectedImages.removeAt(index);
+                        });
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: const BoxDecoration(
+                          color: Colors.red,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.close,
+                          color: Colors.white,
+                          size: 16,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 16),
+        Text(
+          '${_selectedImages.length}/6 photos added',
+          style: TextStyle(
+            color: AppConstants.textSecondary,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildInterestsStep() {
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 24),
+          Text(
+            'What are your interests?',
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: AppConstants.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Select at least 3 interests to help others get to know you better.',
+            style: TextStyle(
+              fontSize: 16,
+              color: AppConstants.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 32),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: AppConstants.interests.map((interest) {
+              final isSelected = _selectedInterests.contains(interest);
+              return InterestChip(
+                label: interest,
+                isSelected: isSelected,
+                onTap: () => _toggleInterest(interest),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 24),
+          Text(
+            '${_selectedInterests.length}/10 interests selected',
+            style: TextStyle(
+              color: AppConstants.textSecondary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAdditionalDetailsStep() {
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 24),
+          Text(
+            'Additional Details',
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: AppConstants.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'These details are optional but help others connect with you.',
+            style: TextStyle(
+              fontSize: 16,
+              color: AppConstants.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 32),
+          TextFormField(
+            controller: _locationController,
+            decoration: const InputDecoration(
+              labelText: 'Location',
+              hintText: 'City, State',
+              prefixIcon: Icon(Icons.location_on_outlined),
+            ),
+          ),
+          const SizedBox(height: 20),
+          TextFormField(
+            controller: _occupationController,
+            decoration: const InputDecoration(
+              labelText: 'Occupation',
+              hintText: 'What do you do?',
+              prefixIcon: Icon(Icons.work_outline),
+            ),
+          ),
+          const SizedBox(height: 20),
+          TextFormField(
+            controller: _educationController,
+            decoration: const InputDecoration(
+              labelText: 'Education',
+              hintText: 'School/University',
+              prefixIcon: Icon(Icons.school_outlined),
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -1,4 +1,4 @@
-package com.demo.evelink
+package com.test.evelink
 
 import io.flutter.embedding.android.FlutterActivity
 

@@ -1,147 +1,68 @@
-import 'package:flutter/material.dart';
-import '../models/user.dart';
-import '../services/database_service.dart';
-import '../services/auth_service.dart';
+import 'package:flutter/foundation.dart';
+import '../models/models.dart';
+import '../services/services.dart';
 
 class LikesProvider with ChangeNotifier {
   final DatabaseService _databaseService = DatabaseService();
-  final AuthService _authService = AuthService();
-  
-  int _remainingLikes = 20;
-  int _remainingHiddenLikes = 5;
-  List<UserModel> _usersWhoLiked = [];
-  Map<String, bool> _hiddenLikesMap = {};
-  Map<String, dynamic> _userInteractions = {};
-  
-  int get remainingLikes => _remainingLikes;
-  int get remainingHiddenLikes => _remainingHiddenLikes;
-  List<UserModel> get usersWhoLiked => _usersWhoLiked;
-  Map<String, bool> get hiddenLikesMap => _hiddenLikesMap;
-  
-  bool hasLiked(String userId) {
-    return _userInteractions['likes']?[userId] != null;
+
+  List<UserModel> _clearLikes = [];
+  List<UserModel> _hiddenLikes = [];
+  bool _isLoading = false;
+  String? _error;
+
+  List<UserModel> get clearLikes => _clearLikes;
+  List<UserModel> get hiddenLikes => _hiddenLikes;
+  bool get isLoading => _isLoading;
+  String? get error => _error;
+  int get totalLikes => _clearLikes.length + _hiddenLikes.length;
+
+  void _setLoading(bool loading) {
+    _isLoading = loading;
+    notifyListeners();
   }
-  
-  bool hasPassed(String userId) {
-    return _userInteractions['passes']?[userId] != null;
+
+  void _setError(String? error) {
+    _error = error;
+    notifyListeners();
   }
-  
-  bool hasHiddenLiked(String userId) {
-    return _userInteractions['hiddenLikes']?[userId] != null;
-  }
-  
-  Future<void> loadUserInteractions(String eventId) async {
-    if (_authService.currentUser == null) return;
-    
+
+  Future<void> loadLikes(String eventId, String userId) async {
+    _setLoading(true);
+    _setError(null);
+
     try {
-      final interactions = await _databaseService.getUserInteractions(
-        eventId, 
-        _authService.currentUser!.uid
-      );
+      // Get users who liked me (clear likes)
+      final clearLikeUserIds = await _databaseService.getUsersWhoLikedMe(eventId, userId);
+      final clearLikeUsers = <UserModel>[];
       
-      _userInteractions = interactions ?? {};
-      
-      // Calculate remaining likes
-      final likesCount = (_userInteractions['likes'] as Map?)?.length ?? 0;
-      final hiddenLikesCount = (_userInteractions['hiddenLikes'] as Map?)?.length ?? 0;
-      
-      _remainingLikes = 20 - likesCount;
-      _remainingHiddenLikes = 5 - hiddenLikesCount;
-      
-      notifyListeners();
-    } catch (e) {
-      print('Error loading user interactions: $e');
-    }
-  }
-  
-  Future<bool> likeUser(String eventId, String userId, {bool isHidden = false}) async {
-    if (_authService.currentUser == null) return false;
-    
-    if (isHidden && _remainingHiddenLikes <= 0) return false;
-    if (!isHidden && _remainingLikes <= 0) return false;
-    
-    try {
-      await _databaseService.recordLike(
-        eventId, 
-        _authService.currentUser!.uid, 
-        userId, 
-        isHidden: isHidden
-      );
-      
-      // Update local state
-      final field = isHidden ? 'hiddenLikes' : 'likes';
-      _userInteractions[field] ??= {};
-      _userInteractions[field][userId] = DateTime.now();
-      
-      if (isHidden) {
-        _remainingHiddenLikes--;
-      } else {
-        _remainingLikes--;
+      for (String uid in clearLikeUserIds) {
+        final user = await _databaseService.getUser(uid);
+        if (user != null) clearLikeUsers.add(user);
       }
       
-      notifyListeners();
-      return true;
-    } catch (e) {
-      print('Error liking user: $e');
-      return false;
-    }
-  }
-  
-  Future<bool> passUser(String eventId, String userId) async {
-    if (_authService.currentUser == null) return false;
-    
-    try {
-      await _databaseService.recordPass(
-        eventId, 
-        _authService.currentUser!.uid, 
-        userId
-      );
+      // Get users who sent hidden likes
+      final hiddenLikeUserIds = await _databaseService.getHiddenLikes(eventId, userId);
+      final hiddenLikeUsers = <UserModel>[];
       
-      _userInteractions['passes'] ??= {};
-      _userInteractions['passes'][userId] = DateTime.now();
-      
-      notifyListeners();
-      return true;
-    } catch (e) {
-      print('Error passing user: $e');
-      return false;
-    }
-  }
-  
-  Future<void> loadUsersWhoLiked(String eventId, List<UserModel> allUsers) async {
-    if (_authService.currentUser == null) return;
-    
-    try {
-      final likedByIds = await _databaseService.getUsersWhoLiked(
-        eventId, 
-        _authService.currentUser!.uid
-      );
-      
-      _usersWhoLiked = allUsers.where((user) => likedByIds.contains(user.uid)).toList();
-      
-      // Check which are hidden likes
-      _hiddenLikesMap.clear();
-      for (String likerId in likedByIds) {
-        final isHidden = await _databaseService.isHiddenLike(
-          eventId, 
-          likerId, 
-          _authService.currentUser!.uid
-        );
-        _hiddenLikesMap[likerId] = isHidden;
+      for (String uid in hiddenLikeUserIds) {
+        final user = await _databaseService.getUser(uid);
+        if (user != null) hiddenLikeUsers.add(user);
       }
-      
+
+      _clearLikes = clearLikeUsers;
+      _hiddenLikes = hiddenLikeUsers;
       notifyListeners();
     } catch (e) {
-      print('Error loading users who liked: $e');
+      _setError(e.toString());
+    } finally {
+      _setLoading(false);
     }
   }
-  
-  void reset() {
-    _remainingLikes = 20;
-    _remainingHiddenLikes = 5;
-    _usersWhoLiked = [];
-    _hiddenLikesMap = {};
-    _userInteractions = {};
+
+  void resetLikes() {
+    _clearLikes = [];
+    _hiddenLikes = [];
+    _error = null;
     notifyListeners();
   }
 }

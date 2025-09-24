@@ -1,69 +1,66 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'database_service.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final DatabaseService _databaseService = DatabaseService();
+
+  // singleton instance
   final GoogleSignIn _googleSignIn = GoogleSignIn.instance;
 
-  static const List<String> scopes = <String>[
-    'email',
-    'https://www.googleapis.com/auth/userinfo.profile',
-  ];
-
   User? get currentUser => _auth.currentUser;
-
   Stream<User?> get authStateChanges => _auth.authStateChanges();
-
-  /// Initialize GoogleSignIn (call this once at app startup)
-  Future<void> initialize({
-    String? clientId,
-    String? serverClientId,
-  }) async {
-    try {
-      await _googleSignIn.initialize(
-
-        clientId: clientId ?? '',
-        serverClientId: serverClientId ?? '',
-      );
-    } catch (e) {
-      print('GoogleSignIn initialization error: $e');
-    }
-  }
+  bool get isSignedIn => _auth.currentUser != null;
 
   Future<User?> signInWithGoogle() async {
     try {
-      final GoogleSignInAccount googleUser = await _googleSignIn.authenticate();
+      // IMPORTANT: must pass your Web Client ID here
+      await _googleSignIn.initialize(
+        clientId: "1054354074866-jnl300isk5vnbrk1imq85bjqigtvj9jd.apps.googleusercontent.com",
+      );
 
-      final GoogleSignInAuthentication authentication = googleUser.authentication;
-      final String? idToken = authentication.idToken;
+      // ask user to sign in
+      final GoogleSignInAccount? googleUser =
+      await _googleSignIn.authenticate();
+      if (googleUser == null) return null;
 
-      final GoogleSignInClientAuthorization? clientAuth =
-      await googleUser.authorizationClient.authorizationForScopes(scopes);
-      final String? accessToken = clientAuth?.accessToken;
+      // get ID token
+      final GoogleSignInAuthentication googleAuth =
+      await googleUser.authentication;
 
-      if (idToken == null || accessToken == null) {
-        print('Missing idToken or accessToken');
+      final String? idToken = googleAuth.idToken;
+      if (idToken == null) {
+        print("No idToken returned");
         return null;
       }
+
+      // request OAuth access token for scopes (e.g. email)
+      final clientAuth = await googleUser.authorizationClient
+          .authorizationForScopes(['email']);
+
+      final String? accessToken = clientAuth?.accessToken;
 
       final credential = GoogleAuthProvider.credential(
         idToken: idToken,
         accessToken: accessToken,
       );
 
-      final UserCredential userCredential = await _auth.signInWithCredential(credential);
-
-      return userCredential.user;
-    } on Exception catch (e) {
-      print('Error signing in with Google: $e');
+      final userCred = await _auth.signInWithCredential(credential);
+      return userCred.user;
+    } catch (e, st) {
+      print("Error signing in with Google: $e\n$st");
       return null;
     }
+  }
+
+  Future<bool> hasProfile() async {
+    if (!isSignedIn) return false;
+    return await _databaseService.userExists(currentUser!.uid);
   }
 
   Future<void> signOut() async {
     await _googleSignIn.signOut();
     await _auth.signOut();
   }
-
-  bool get isSignedIn => _auth.currentUser != null;
 }

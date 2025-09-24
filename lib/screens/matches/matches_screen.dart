@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../models/match.dart';
-import '../../models/user.dart';
-import '../../providers/user_provider.dart';
-import '../../services/database_service.dart';
+import '../../providers/providers.dart';
+import '../../models/models.dart';
+import '../../utils/utils.dart';
+import '../../widgets/widgets.dart';
 import '../chat/chat_screen.dart';
 
 class MatchesScreen extends StatefulWidget {
@@ -14,162 +14,185 @@ class MatchesScreen extends StatefulWidget {
 }
 
 class _MatchesScreenState extends State<MatchesScreen> {
-  final DatabaseService _databaseService = DatabaseService();
-  List<MatchModel> _matches = [];
-  Map<String, UserModel> _matchedUsers = {};
-  bool _isLoading = true;
-
   @override
   void initState() {
     super.initState();
     _loadMatches();
   }
 
-  Future<void> _loadMatches() async {
+  void _loadMatches() {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
-    if (userProvider.currentUser == null) return;
+    final matchProvider = Provider.of<MatchProvider>(context, listen: false);
 
-    setState(() {
-      _isLoading = true;
-    });
-
-    try {
-      final matches = await _databaseService.getUserMatches(
-          userProvider.currentUser!.uid
-      );
-
-      final Map<String, UserModel> users = {};
-
-      for (final match in matches) {
-        final otherUserId = match.users.firstWhere(
-                (id) => id != userProvider.currentUser!.uid
-        );
-
-        final user = await _databaseService.getUser(otherUserId);
-        if (user != null) {
-          users[otherUserId] = user;
-        }
-      }
-
-      setState(() {
-        _matches = matches;
-        _matchedUsers = users;
-        _isLoading = false;
-      });
-    } catch (e) {
-      print('Error loading matches: $e');
-      setState(() {
-        _isLoading = false;
-      });
+    if (userProvider.currentUser != null) {
+      matchProvider.loadMatches(userProvider.currentUser!.uid);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Matches'),
+      ),
+      body: Consumer2<UserProvider, MatchProvider>(
+        builder: (context, userProvider, matchProvider, child) {
+          if (matchProvider.isLoading) {
+            return const Center(child: CircularProgressIndicator());
+          }
 
-    if (_matches.isEmpty) {
-      return const Center(
+          final matches = matchProvider.matches;
+
+          if (matches.isEmpty) {
+            return _buildEmptyState();
+          }
+
+          return ListView.builder(
+            padding: AppConstants.defaultPadding,
+            itemCount: matches.length,
+            itemBuilder: (context, index) {
+              final match = matches[index];
+              final otherUser = matchProvider.getMatchedUser(
+                match, 
+                userProvider.currentUser!.uid,
+              );
+
+              if (otherUser == null) return const SizedBox();
+
+              return _buildMatchCard(match, otherUser);
+            },
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Padding(
+        padding: AppConstants.screenPadding,
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              Icons.chat_bubble_outline,
+              Icons.people_outline,
               size: 80,
-              color: Colors.grey,
+              color: AppConstants.textSecondary,
             ),
-            SizedBox(height: 16),
+            
+            const SizedBox(height: 24),
+            
             Text(
-              'No matches yet',
+              'No Matches Yet',
               style: TextStyle(
-                fontSize: 18,
-                color: Colors.grey,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: AppConstants.textPrimary,
               ),
             ),
-            SizedBox(height: 8),
+            
+            const SizedBox(height: 8),
+            
             Text(
-              'Start liking people to make matches!',
+              'When you and someone else like each other,\nyou\'ll see them here',
               style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey,
+                color: AppConstants.textSecondary,
               ),
+              textAlign: TextAlign.center,
             ),
           ],
         ),
-      );
-    }
+      ),
+    );
+  }
 
-    return RefreshIndicator(
-      onRefresh: _loadMatches,
-      child: ListView.builder(
-        padding: const EdgeInsets.all(16),
-        itemCount: _matches.length,
-        itemBuilder: (context, index) {
-          final match = _matches[index];
-          final userProvider = Provider.of<UserProvider>(context, listen: false);
-          final otherUserId = match.users.firstWhere(
-                  (id) => id != userProvider.currentUser!.uid
-          );
-          final otherUser = _matchedUsers[otherUserId];
-
-          if (otherUser == null) {
-            return const SizedBox.shrink();
-          }
-
-          return Card(
-            margin: const EdgeInsets.only(bottom: 12),
-            child: ListTile(
-              contentPadding: const EdgeInsets.all(12),
-              leading: CircleAvatar(
-                radius: 30,
-                backgroundImage: otherUser.photoUrls.isNotEmpty
-                    ? NetworkImage(otherUser.photoUrls.first)
-                    : null,
-                child: otherUser.photoUrls.isEmpty
-                    ? const Icon(Icons.person)
-                    : null,
+  Widget _buildMatchCard(MatchModel match, UserModel user) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: ListTile(
+        contentPadding: const EdgeInsets.all(16),
+        leading: CircleAvatar(
+          radius: 30,
+          backgroundColor: Helpers.getRandomColor(user.uid),
+          backgroundImage: user.photoUrls.isNotEmpty 
+              ? NetworkImage(user.photoUrls.first) 
+              : null,
+          child: user.photoUrls.isEmpty 
+              ? Text(
+                  user.name[0].toUpperCase(),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                )
+              : null,
+        ),
+        title: Text(
+          user.name,
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('${user.age} years old'),
+            const SizedBox(height: 4),
+            if (match.lastMessage != null) ...[
+              Text(
+                match.lastMessage!,
+                style: TextStyle(
+                  color: AppConstants.textSecondary,
+                  fontSize: 14,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
-              title: Text(
-                otherUser.name,
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
+            ] else ...[
+              Text(
+                'Start a conversation!',
+                style: TextStyle(
+                  color: AppConstants.primaryColor,
+                  fontSize: 14,
                 ),
               ),
-              subtitle: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Age: ${otherUser.age}'),
-                  if (match.lastMessage != null) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      match.lastMessage!,
-                      style: const TextStyle(
-                        color: Colors.grey,
-                        fontStyle: FontStyle.italic,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ],
+            ],
+          ],
+        ),
+        trailing: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            if (match.lastMessageTime != null) ...[
+              Text(
+                Helpers.getTimeAgo(match.lastMessageTime!),
+                style: TextStyle(
+                  color: AppConstants.textSecondary,
+                  fontSize: 12,
+                ),
               ),
-              trailing: const Icon(Icons.chat),
-              onTap: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => ChatScreen(
-                      matchId: match.id,
-                      otherUser: otherUser,
-                    ),
-                  ),
-                );
-              },
+            ],
+            const SizedBox(height: 4),
+            Icon(
+              Icons.chat_bubble_outline,
+              color: AppConstants.primaryColor,
             ),
-          );
-        },
+          ],
+        ),
+        onTap: () => _openChat(match, user),
+      ),
+    );
+  }
+
+  void _openChat(MatchModel match, UserModel user) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ChatScreen(
+          match: match,
+          otherUser: user,
+        ),
       ),
     );
   }
