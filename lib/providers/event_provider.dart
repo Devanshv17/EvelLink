@@ -1,9 +1,11 @@
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/models.dart';
 import '../services/services.dart';
 
 class EventProvider with ChangeNotifier {
   final DatabaseService _databaseService = DatabaseService();
+  static const String _currentEventKey = 'current_event_id';
 
   EventModel? _currentEvent;
   List<UserModel> _eventParticipants = [];
@@ -28,103 +30,145 @@ class EventProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  Future<bool> joinEvent(QRDataModel qrData, String userId) async {
-    _setLoading(true);
+  Future<bool> tryRejoinPreviousEvent(String userId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final eventId = prefs.getString(_currentEventKey);
+
+    if (eventId == null) {
+      return false;
+    }
+
+    final event = await _databaseService.getEvent(eventId);
+    if (event != null && event.isActive) {
+      final qrData = QRDataModel(
+        eventId: event.eventId,
+        eventName: event.name,
+        startTime: event.startTime,
+        endTime: event.endTime,
+        location: event.location,
+      );
+      await joinEvent(qrData, userId, isRejoining: true);
+      return true;
+    } else {
+      await _clearPersistedEvent();
+      return false;
+    }
+  }
+
+  Future<bool> joinEvent(QRDataModel qrData, String userId, {bool isRejoining = false}) async {
+    if (!isRejoining) {
+      _setLoading(true);
+    }
     _setError(null);
 
     try {
-      // Validate QR data
       if (!qrData.isValid) {
         _setError('Event has expired or not yet started');
+        if (!isRejoining) _setLoading(false);
         return false;
       }
 
-      // Get event details
       final event = await _databaseService.getEvent(qrData.eventId);
       if (event == null) {
         _setError('Event not found');
+        if (!isRejoining) _setLoading(false);
         return false;
       }
 
-      // Join the event
       await _databaseService.joinEvent(qrData.eventId, userId);
-      
+
       _currentEvent = event;
+
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_currentEventKey, qrData.eventId);
+
       await loadEventParticipants(userId);
       await loadUserInteractions(qrData.eventId, userId);
-      
+
       notifyListeners();
       return true;
     } catch (e) {
       _setError(e.toString());
       return false;
     } finally {
-      _setLoading(false);
+      if (!isRejoining) {
+        _setLoading(false);
+      }
     }
+  }
+
+  Future<void> _clearPersistedEvent() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_currentEventKey);
+  }
+
+  Future<void> leaveEvent() async {
+    _currentEvent = null;
+    _eventParticipants = [];
+    _userInteractions = null;
+    _error = null;
+    await _clearPersistedEvent();
+    notifyListeners();
   }
 
   Future<void> loadEventParticipants(String currentUserId) async {
     if (_currentEvent == null) return;
 
+    _setLoading(true);
     try {
-      final participants = await _databaseService.getEventParticipants(
-        _currentEvent!.eventId, 
+      _eventParticipants = await _databaseService.getEventParticipants(
+        _currentEvent!.eventId,
         currentUserId,
       );
-      _eventParticipants = participants;
-      notifyListeners();
     } catch (e) {
       _setError(e.toString());
+    } finally {
+      _setLoading(false);
     }
   }
 
   Future<void> loadUserInteractions(String eventId, String userId) async {
     try {
-      final interactions = await _databaseService.getUserInteractions(eventId, userId);
-      _userInteractions = interactions;
+      _userInteractions = await _databaseService.getUserInteractions(eventId, userId);
       notifyListeners();
     } catch (e) {
-      _setError(e.toString());
+      print('Error loading user interactions: $e');
     }
   }
 
   List<UserModel> getFilteredParticipants() {
-    if (_userInteractions == null) return _eventParticipants;
+    if (_userInteractions == null) {
+      return _eventParticipants;
+    }
 
-    final likes = (_userInteractions!['likes'] as Map<String, dynamic>?) ?? {};
-    final passes = (_userInteractions!['passes'] as Map<String, dynamic>?) ?? {};
-    final hiddenLikes = (_userInteractions!['hiddenLikes'] as Map<String, dynamic>?) ?? {};
+    // Explicitly define the type to fix the inference error.
+    final Set<String> likedIds = _userInteractions!['likes']?.keys.toSet().cast<String>() ?? {};
+    final Set<String> hiddenLikedIds = _userInteractions!['hiddenLikes']?.keys.toSet().cast<String>() ?? {};
+    final Set<String> passedIds = _userInteractions!['passes']?.keys.toSet().cast<String>() ?? {};
 
-    // Filter out users already interacted with
-    return _eventParticipants.where((user) {
-      return !likes.containsKey(user.uid) && 
-             !passes.containsKey(user.uid) && 
-             !hiddenLikes.containsKey(user.uid);
-    }).toList();
+    final interactedIds = {...likedIds, ...hiddenLikedIds, ...passedIds};
+
+    return _eventParticipants
+        .where((p) => !interactedIds.contains(p.uid))
+        .toList();
   }
 
+  /// Handles a swipe action and returns true if it was a match.
   Future<bool> swipeUser(String eventId, String currentUserId, String targetUserId, bool isLike, {bool isHidden = false}) async {
     try {
       if (isLike) {
-        await _databaseService.recordLike(eventId, currentUserId, targetUserId, isHidden: isHidden);
+        final isMatch = await _databaseService.recordLike(eventId, currentUserId, targetUserId, isHidden: isHidden);
+        await loadUserInteractions(eventId, currentUserId);
+        return isMatch;
       } else {
         await _databaseService.recordPass(eventId, currentUserId, targetUserId);
+        await loadUserInteractions(eventId, currentUserId);
+        return false; // A "pass" is never a match.
       }
-
-      // Reload interactions
-      await loadUserInteractions(eventId, currentUserId);
-      return true;
     } catch (e) {
-      _setError(e.toString());
+      print('Error swiping user: $e');
+      _setError('Could not perform action. Please try again.');
       return false;
     }
-  }
-
-  void leaveEvent() {
-    _currentEvent = null;
-    _eventParticipants = [];
-    _userInteractions = null;
-    _error = null;
-    notifyListeners();
   }
 }

@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import '../main/main_navigation_screen.dart';
 import 'package:provider/provider.dart';
 import '../../models/models.dart';
 import '../../providers/providers.dart';
@@ -129,6 +130,7 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
 
     if (!authService.isSignedIn) return;
 
+    // ... (user model creation code is the same)
     final user = UserModel(
       uid: authService.currentUser!.uid,
       name: _nameController.text.trim(),
@@ -150,7 +152,13 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
     final success = await userProvider.createProfile(user, _selectedImages);
 
     if (success && mounted) {
-      Navigator.of(context).popUntil((route) => route.isFirst);
+      // This is the important change. We replace the current navigation
+      // stack with the MainNavigationScreen, so the user can't go "back"
+      // to the profile creation flow.
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (context) => const MainNavigationScreen()),
+            (Route<dynamic> route) => false,
+      );
     } else if (mounted) {
       Helpers.showSnackBar(
         context,

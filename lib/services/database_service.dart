@@ -81,7 +81,9 @@ class DatabaseService {
   }
 
   // Interaction operations
-  Future<void> recordLike(String eventId, String swiperId, String swipedId, {bool isHidden = false}) async {
+
+  /// Records a like and returns true if it resulted in a match.
+  Future<bool> recordLike(String eventId, String swiperId, String swipedId, {bool isHidden = false}) async {
     final docRef = _firestore
         .collection('interactions')
         .doc(eventId)
@@ -89,13 +91,13 @@ class DatabaseService {
         .doc(swiperId);
 
     final field = isHidden ? 'hiddenLikes' : 'likes';
-    
+
     await docRef.set({
       field: {swipedId: FieldValue.serverTimestamp()}
     }, SetOptions(merge: true));
 
-    // Check for mutual like to create match
-    await _checkForMatch(eventId, swiperId, swipedId);
+    // Check for mutual like and return the result.
+    return _checkForMatch(eventId, swiperId, swipedId);
   }
 
   Future<void> recordPass(String eventId, String swiperId, String swipedId) async {
@@ -117,7 +119,7 @@ class DatabaseService {
         .collection('swipes')
         .doc(userId)
         .get();
-    
+
     return doc.data();
   }
 
@@ -127,16 +129,16 @@ class DatabaseService {
         .doc(eventId)
         .collection('swipes')
         .get();
-    
+
     List<String> likedBy = [];
-    
+
     for (var doc in snapshot.docs) {
       final data = doc.data();
       if (data['likes'] != null && data['likes'][userId] != null) {
         likedBy.add(doc.id);
       }
     }
-    
+
     return likedBy;
   }
 
@@ -146,21 +148,21 @@ class DatabaseService {
         .doc(eventId)
         .collection('swipes')
         .get();
-    
+
     List<String> hiddenLikedBy = [];
-    
+
     for (var doc in snapshot.docs) {
       final data = doc.data();
       if (data['hiddenLikes'] != null && data['hiddenLikes'][userId] != null) {
         hiddenLikedBy.add(doc.id);
       }
     }
-    
+
     return hiddenLikedBy;
   }
 
-  Future<void> _checkForMatch(String eventId, String swiperId, String swipedId) async {
-    // Check if the swiped user also liked the swiper
+  /// Checks if a like is mutual and creates a match if it is. Returns true if a match was made.
+  Future<bool> _checkForMatch(String eventId, String swiperId, String swipedId) async {
     final swipedUserDoc = await _firestore
         .collection('interactions')
         .doc(eventId)
@@ -171,17 +173,20 @@ class DatabaseService {
     if (swipedUserDoc.exists) {
       final data = swipedUserDoc.data()!;
       final likes = data['likes'] as Map<String, dynamic>? ?? {};
-      
-      if (likes.containsKey(swiperId)) {
+      final hiddenLikes = data['hiddenLikes'] as Map<String, dynamic>? ?? {};
+
+      if (likes.containsKey(swiperId) || hiddenLikes.containsKey(swiperId)) {
         // It's a match!
         await _createMatch(eventId, swiperId, swipedId);
+        return true;
       }
     }
+    return false;
   }
 
   Future<void> _createMatch(String eventId, String user1Id, String user2Id) async {
     final matchId = _generateMatchId(user1Id, user2Id);
-    
+
     await _firestore.collection('matches').doc(matchId).set({
       'users': [user1Id, user2Id],
       'eventId': eventId,
@@ -197,7 +202,7 @@ class DatabaseService {
         .where('users', arrayContains: userId)
         .orderBy('matchedAt', descending: true)
         .get();
-    
+
     return snapshot.docs
         .map((doc) => MatchModel.fromMap(doc.data(), doc.id))
         .toList();
@@ -235,8 +240,8 @@ class DatabaseService {
         .orderBy('timestamp', descending: true)
         .snapshots()
         .map((snapshot) => snapshot.docs
-            .map((doc) => MessageModel.fromMap(doc.data(), doc.id))
-            .toList());
+        .map((doc) => MessageModel.fromMap(doc.data(), doc.id))
+        .toList());
   }
 
   String _generateMatchId(String user1Id, String user2Id) {
