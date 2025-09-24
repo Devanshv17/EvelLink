@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:convert';
+import 'dart:typed_data'; // Required for Uint8List
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'package:crypto/crypto.dart';
@@ -9,17 +10,58 @@ import '../utils/b2_config.dart';
 
 class StorageService {
   final ImagePicker _picker = ImagePicker();
-  
+
+  // --- Singleton Pattern to hold authorization details ---
+  static final StorageService _instance = StorageService._internal();
+  factory StorageService() {
+    return _instance;
+  }
+  StorageService._internal();
+  // --- End Singleton Pattern ---
+
   String? _apiUrl;
   String? _authorizationToken;
   String? _downloadUrl;
   String? _bucketId;
   String? _accountId;
 
+  // --- NEW METHOD TO FETCH IMAGE DATA ---
+  Future<Uint8List?> fetchPrivateImageData(String url) async {
+    // Ensure we have a valid authorization token.
+    if (_authorizationToken == null) {
+      final authSuccess = await _authorize();
+      if (!authSuccess) {
+        print('B2 Authorization failed. Cannot fetch image.');
+        return null;
+      }
+    }
+
+    try {
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {
+          // This is the crucial part: adding the token to the request header.
+          'Authorization': _authorizationToken!,
+        },
+      );
+
+      if (response.statusCode == 200) {
+        // If successful, return the raw image bytes.
+        return response.bodyBytes;
+      } else {
+        print('Failed to fetch private image. Status code: ${response.statusCode}, Body: ${response.body}');
+        return null;
+      }
+    } catch (e) {
+      print('Error fetching private image data: $e');
+      return null;
+    }
+  }
+
   Future<bool> _authorize() async {
     try {
       final credentials = base64Encode(utf8.encode('${B2Config.keyId}:${B2Config.applicationKey}'));
-      
+
       final response = await http.get(
         Uri.parse('https://api.backblazeb2.com/b2api/v2/b2_authorize_account'),
         headers: {
@@ -33,7 +75,7 @@ class StorageService {
         _apiUrl = data['apiUrl'];
         _downloadUrl = data['downloadUrl'];
         _accountId = data['accountId'];
-        
+
         await _getBucketId();
         return true;
       } else {
@@ -164,3 +206,4 @@ class StorageService {
     }
   }
 }
+

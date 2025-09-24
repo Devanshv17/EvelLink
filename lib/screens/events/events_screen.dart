@@ -137,23 +137,27 @@ class _EventsScreenState extends State<EventsScreen> {
                   CircleAvatar(
                     radius: 30,
                     backgroundColor: Helpers.getRandomColor(user.uid),
-                    backgroundImage: user.photoUrls.isNotEmpty 
-                        ? NetworkImage(user.photoUrls.first) 
-                        : null,
-                    child: user.photoUrls.isEmpty 
-                        ? Text(
-                            user.name[0].toUpperCase(),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          )
-                        : null,
+                    // Use ClipOval for a circular image with PrivateNetworkImage
+                    child: user.photoUrls.isNotEmpty
+                        ? ClipOval(
+                      child: PrivateNetworkImage(
+                        imageUrl: user.photoUrls.first,
+                        seedForFallbackColor: user.uid,
+                        fit: BoxFit.cover,
+                      ),
+                    )
+                        : Text(
+                      user.name.isNotEmpty ? user.name[0].toUpperCase() : '?',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
-                  
+
                   const SizedBox(width: 16),
-                  
+
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -176,10 +180,9 @@ class _EventsScreenState extends State<EventsScreen> {
                   ),
                 ],
               ),
-              
+
+              // ... rest of the menu options
               const SizedBox(height: 24),
-              
-              // Menu Options
               ListTile(
                 leading: const Icon(Icons.edit),
                 title: const Text('Edit Profile'),
@@ -188,7 +191,6 @@ class _EventsScreenState extends State<EventsScreen> {
                   // TODO: Navigate to edit profile
                 },
               ),
-              
               ListTile(
                 leading: const Icon(Icons.settings),
                 title: const Text('Settings'),
@@ -197,7 +199,6 @@ class _EventsScreenState extends State<EventsScreen> {
                   // TODO: Navigate to settings
                 },
               ),
-              
               ListTile(
                 leading: const Icon(Icons.logout, color: Colors.red),
                 title: const Text('Sign Out', style: TextStyle(color: Colors.red)),
@@ -208,7 +209,7 @@ class _EventsScreenState extends State<EventsScreen> {
                     title: 'Sign Out',
                     content: 'Are you sure you want to sign out?',
                   );
-                  
+
                   if (shouldSignOut == true && mounted) {
                     final authService = Provider.of<AuthService>(context, listen: false);
                     await authService.signOut();

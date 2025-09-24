@@ -17,17 +17,26 @@ class _MatchesScreenState extends State<MatchesScreen> {
   @override
   void initState() {
     super.initState();
-    _loadMatches();
+    // This schedules _loadMatches to be called immediately after the first frame is built.
+    // This is the correct way to load data that affects the UI from initState.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadMatches();
+    });
   }
 
+
+
   void _loadMatches() {
+    // Access the providers without listening to prevent unnecessary rebuilds.
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final matchProvider = Provider.of<MatchProvider>(context, listen: false);
 
+    // Make sure we have a user before trying to load their matches.
     if (userProvider.currentUser != null) {
       matchProvider.loadMatches(userProvider.currentUser!.uid);
     }
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -53,7 +62,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
             itemBuilder: (context, index) {
               final match = matches[index];
               final otherUser = matchProvider.getMatchedUser(
-                match, 
+                match,
                 userProvider.currentUser!.uid,
               );
 

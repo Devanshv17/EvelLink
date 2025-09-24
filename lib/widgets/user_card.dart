@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+import 'dart:ui'; // For ImageFilter
 import '../models/models.dart';
 import '../utils/utils.dart';
-import 'dart:ui';
+import 'private_network_image.dart'; // Import the new widget
 
 class UserCard extends StatelessWidget {
   final UserModel user;
@@ -38,13 +38,13 @@ class UserCard extends StatelessWidget {
             children: [
               // User Photo
               _buildUserPhoto(),
-              
+
               // Blur overlay for hidden likes
               if (isBlurred) _buildBlurOverlay(),
-              
+
               // Gradient overlay
               _buildGradientOverlay(),
-              
+
               // User info
               _buildUserInfo(),
             ],
@@ -56,17 +56,12 @@ class UserCard extends StatelessWidget {
 
   Widget _buildUserPhoto() {
     if (user.photoUrls.isNotEmpty) {
-      return CachedNetworkImage(
+      // --- USE THE NEW WIDGET ---
+      return PrivateNetworkImage(
         imageUrl: user.photoUrls.first,
-        fit: BoxFit.cover,
-        placeholder: (context, url) => Container(
-          color: Helpers.getRandomColor(user.uid).withOpacity(0.3),
-          child: const Center(
-            child: CircularProgressIndicator(),
-          ),
-        ),
-        errorWidget: (context, url, error) => _buildFallbackAvatar(),
+        seedForFallbackColor: user.uid,
       );
+      // --- END ---
     } else {
       return _buildFallbackAvatar();
     }
@@ -77,7 +72,7 @@ class UserCard extends StatelessWidget {
       color: Helpers.getRandomColor(user.uid),
       child: Center(
         child: Text(
-          user.name[0].toUpperCase(),
+          user.name.isNotEmpty ? user.name[0].toUpperCase() : '?',
           style: const TextStyle(
             color: Colors.white,
             fontSize: 48,
@@ -95,7 +90,7 @@ class UserCard extends StatelessWidget {
         color: Colors.black.withOpacity(0.2),
         child: const Center(
           child: Icon(
-            Icons.blur_on,
+            Icons.visibility_off,
             color: Colors.white,
             size: 40,
           ),
@@ -139,9 +134,9 @@ class UserCard extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
-          
+
           const SizedBox(height: 2),
-          
+
           Text(
             '${user.age} years old',
             style: const TextStyle(
@@ -149,7 +144,7 @@ class UserCard extends StatelessWidget {
               fontSize: 14,
             ),
           ),
-          
+
           if (user.interests.isNotEmpty) ...[
             const SizedBox(height: 4),
             Text(
@@ -167,3 +162,4 @@ class UserCard extends StatelessWidget {
     );
   }
 }
+

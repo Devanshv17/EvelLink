@@ -13,10 +13,19 @@ class ChatListScreen extends StatefulWidget {
 }
 
 class _ChatListScreenState extends State<ChatListScreen> {
-  @override
-  void initState() {
-    super.initState();
-    _loadMatches();
+  bool _hasLoaded = false;
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Use didChangeDependencies instead of initState to safely access providers
+    // and check the flag to ensure data is loaded only once.
+    if (!_hasLoaded) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _loadMatches();
+      });
+      setState(() {
+        _hasLoaded = true;
+      });
+    }
   }
 
   void _loadMatches() {
