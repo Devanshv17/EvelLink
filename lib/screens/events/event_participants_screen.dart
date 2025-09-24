@@ -22,16 +22,18 @@ class _EventParticipantsScreenState extends State<EventParticipantsScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadParticipants();
+      _loadInitialData();
     });
   }
 
-  void _loadParticipants() {
+  void _loadInitialData() {
     final eventProvider = Provider.of<EventProvider>(context, listen: false);
     final userProvider = Provider.of<UserProvider>(context, listen: false);
 
     if (userProvider.currentUser != null) {
+      // Load both participants and the current user's past interactions in this event
       eventProvider.loadEventParticipants(userProvider.currentUser!.uid);
+      eventProvider.loadUserInteractions(widget.event.eventId, userProvider.currentUser!.uid);
     }
   }
 
@@ -39,22 +41,7 @@ class _EventParticipantsScreenState extends State<EventParticipantsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              widget.event.name,
-              style: const TextStyle(fontSize: 18),
-            ),
-            Text(
-              widget.event.location,
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.normal,
-              ),
-            ),
-          ],
-        ),
+        title: Text(widget.event.name),
         actions: [
           IconButton(
             onPressed: _leaveEvent,
@@ -63,31 +50,32 @@ class _EventParticipantsScreenState extends State<EventParticipantsScreen> {
           ),
         ],
       ),
-      body: Consumer2<EventProvider, UserProvider>(
-        builder: (context, eventProvider, userProvider, child) {
+      body: Consumer<EventProvider>(
+        builder: (context, eventProvider, child) {
           if (eventProvider.isLoading) {
             return const Center(child: CircularProgressIndicator());
           }
 
+          // Use the provider's logic to get only users who haven't been swiped on
           final participants = eventProvider.getFilteredParticipants();
 
           if (participants.isEmpty) {
             return _buildEmptyState();
           }
 
-          // --- NEW GRID VIEW LAYOUT ---
+          // --- REVERTED TO A SIMPLE AND RELIABLE GridView.builder ---
           return GridView.builder(
             padding: const EdgeInsets.all(12.0),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2, // 2 columns
-              crossAxisSpacing: 12.0, // Spacing between columns
-              mainAxisSpacing: 12.0, // Spacing between rows
-              childAspectRatio: 0.85, // Adjust for card shape (width / height)
+              crossAxisCount: 2,
+              crossAxisSpacing: 12.0,
+              mainAxisSpacing: 12.0,
+              childAspectRatio: 0.75, // Aspect ratio for UserCard
             ),
             itemCount: participants.length,
             itemBuilder: (context, index) {
               final user = participants[index];
-              return ParticipantCard( // Use our new card
+              return UserCard( // Using the better UserCard
                 user: user,
                 onTap: () => _showUserDetail(user),
               );
@@ -110,32 +98,26 @@ class _EventParticipantsScreenState extends State<EventParticipantsScreen> {
               size: 80,
               color: AppConstants.textSecondary,
             ),
-
             const SizedBox(height: 24),
-
             Text(
-              'No one else here yet',
+              'No one new to see',
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
                 color: AppConstants.textPrimary,
               ),
             ),
-
             const SizedBox(height: 8),
-
             Text(
-              'You\'re early! More people will join soon.',
+              'You\'ve seen everyone for now. Check back later!',
               style: TextStyle(
                 color: AppConstants.textSecondary,
               ),
               textAlign: TextAlign.center,
             ),
-
             const SizedBox(height: 32),
-
             ElevatedButton.icon(
-              onPressed: _loadParticipants,
+              onPressed: _loadInitialData,
               icon: const Icon(Icons.refresh),
               label: const Text('Refresh'),
             ),
@@ -152,8 +134,15 @@ class _EventParticipantsScreenState extends State<EventParticipantsScreen> {
       backgroundColor: Colors.transparent,
       builder: (context) => UserDetailBottomSheet(
         user: user,
-        onLike: (isHidden) => _swipeUser(user, true, isHidden: isHidden),
-        onPass: () => _swipeUser(user, false),
+        showLikeButtons: true, // Make sure like buttons are shown
+        onLike: (isHidden) {
+          Navigator.pop(context); // Close the bottom sheet
+          _swipeUser(user, true, isHidden: isHidden);
+        },
+        onPass: () {
+          Navigator.pop(context); // Close the bottom sheet
+          _swipeUser(user, false);
+        },
       ),
     );
   }
@@ -172,17 +161,12 @@ class _EventParticipantsScreenState extends State<EventParticipantsScreen> {
       isHidden: isHidden,
     );
 
-    // You might want to show a "It's a Match!" dialog here if isMatch is true.
-
-    if (mounted) {
-      final action = isLike
-          ? (isHidden ? 'sent a hidden like' : 'liked')
-          : 'passed on';
-
-      Helpers.showSnackBar(
-        context,
-        'You $action ${user.name}',
-      );
+    if (isMatch) {
+      // TODO: Navigate to a "It's a Match!" screen
+      Helpers.showSnackBar(context, "It's a Match with ${user.name}!", isError: false);
+    } else if (mounted) {
+      final action = isLike ? 'Liked' : 'Passed on';
+      Helpers.showSnackBar(context, '$action ${user.name}');
     }
   }
 
@@ -197,9 +181,7 @@ class _EventParticipantsScreenState extends State<EventParticipantsScreen> {
 
     if (shouldLeave == true && mounted) {
       final eventProvider = Provider.of<EventProvider>(context, listen: false);
-      eventProvider.leaveEvent();
-
-      Helpers.showSnackBar(context, 'Left the event');
+      await eventProvider.leaveEvent();
     }
   }
 }
