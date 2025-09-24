@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import '../../models/models.dart';
 import '../../providers/providers.dart';
 import '../../utils/utils.dart';
@@ -30,7 +29,7 @@ class _EventParticipantsScreenState extends State<EventParticipantsScreen> {
   void _loadParticipants() {
     final eventProvider = Provider.of<EventProvider>(context, listen: false);
     final userProvider = Provider.of<UserProvider>(context, listen: false);
-    
+
     if (userProvider.currentUser != null) {
       eventProvider.loadEventParticipants(userProvider.currentUser!.uid);
     }
@@ -71,60 +70,28 @@ class _EventParticipantsScreenState extends State<EventParticipantsScreen> {
           }
 
           final participants = eventProvider.getFilteredParticipants();
-          
+
           if (participants.isEmpty) {
             return _buildEmptyState();
           }
 
-          return Padding(
-            padding: AppConstants.defaultPadding,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Event info
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: AppConstants.primaryColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(AppConstants.borderRadius),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.people,
-                        color: AppConstants.primaryColor,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        '${participants.length} people to connect with',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          color: AppConstants.primaryColor,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                
-                const SizedBox(height: 16),
-                
-                // Participants grid
-                Expanded(
-                  child: MasonryGridView.count(
-                    crossAxisCount: AppConstants.userGridCrossAxisCount,
-                    crossAxisSpacing: AppConstants.userGridSpacing,
-                    mainAxisSpacing: AppConstants.userGridSpacing,
-                    itemCount: participants.length,
-                    itemBuilder: (context, index) {
-                      return UserCard(
-                        user: participants[index],
-                        onTap: () => _showUserDetail(participants[index]),
-                      );
-                    },
-                  ),
-                ),
-              ],
+          // --- NEW GRID VIEW LAYOUT ---
+          return GridView.builder(
+            padding: const EdgeInsets.all(12.0),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2, // 2 columns
+              crossAxisSpacing: 12.0, // Spacing between columns
+              mainAxisSpacing: 12.0, // Spacing between rows
+              childAspectRatio: 0.85, // Adjust for card shape (width / height)
             ),
+            itemCount: participants.length,
+            itemBuilder: (context, index) {
+              final user = participants[index];
+              return ParticipantCard( // Use our new card
+                user: user,
+                onTap: () => _showUserDetail(user),
+              );
+            },
           );
         },
       ),
@@ -143,9 +110,9 @@ class _EventParticipantsScreenState extends State<EventParticipantsScreen> {
               size: 80,
               color: AppConstants.textSecondary,
             ),
-            
+
             const SizedBox(height: 24),
-            
+
             Text(
               'No one else here yet',
               style: TextStyle(
@@ -154,9 +121,9 @@ class _EventParticipantsScreenState extends State<EventParticipantsScreen> {
                 color: AppConstants.textPrimary,
               ),
             ),
-            
+
             const SizedBox(height: 8),
-            
+
             Text(
               'You\'re early! More people will join soon.',
               style: TextStyle(
@@ -164,9 +131,9 @@ class _EventParticipantsScreenState extends State<EventParticipantsScreen> {
               ),
               textAlign: TextAlign.center,
             ),
-            
+
             const SizedBox(height: 32),
-            
+
             ElevatedButton.icon(
               onPressed: _loadParticipants,
               icon: const Icon(Icons.refresh),
@@ -197,7 +164,7 @@ class _EventParticipantsScreenState extends State<EventParticipantsScreen> {
 
     if (userProvider.currentUser == null) return;
 
-    final success = await eventProvider.swipeUser(
+    final isMatch = await eventProvider.swipeUser(
       widget.event.eventId,
       userProvider.currentUser!.uid,
       user.uid,
@@ -205,13 +172,13 @@ class _EventParticipantsScreenState extends State<EventParticipantsScreen> {
       isHidden: isHidden,
     );
 
-    if (success && mounted) {
-      Navigator.pop(context); // Close detail sheet
-      
-      final action = isLike 
-          ? (isHidden ? 'sent a hidden like' : 'liked') 
+    // You might want to show a "It's a Match!" dialog here if isMatch is true.
+
+    if (mounted) {
+      final action = isLike
+          ? (isHidden ? 'sent a hidden like' : 'liked')
           : 'passed on';
-      
+
       Helpers.showSnackBar(
         context,
         'You $action ${user.name}',
@@ -231,7 +198,7 @@ class _EventParticipantsScreenState extends State<EventParticipantsScreen> {
     if (shouldLeave == true && mounted) {
       final eventProvider = Provider.of<EventProvider>(context, listen: false);
       eventProvider.leaveEvent();
-      
+
       Helpers.showSnackBar(context, 'Left the event');
     }
   }
