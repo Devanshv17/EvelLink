@@ -17,26 +17,20 @@ class _MatchesScreenState extends State<MatchesScreen> {
   @override
   void initState() {
     super.initState();
-    // This schedules _loadMatches to be called immediately after the first frame is built.
-    // This is the correct way to load data that affects the UI from initState.
+    // Correctly initiate data listening from initState.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadMatches();
+      _listenToMatches();
     });
   }
 
-
-
-  void _loadMatches() {
-    // Access the providers without listening to prevent unnecessary rebuilds.
+  void _listenToMatches() {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final matchProvider = Provider.of<MatchProvider>(context, listen: false);
 
-    // Make sure we have a user before trying to load their matches.
     if (userProvider.currentUser != null) {
-      matchProvider.loadMatches(userProvider.currentUser!.uid);
+      matchProvider.listenToMatches(userProvider.currentUser!.uid);
     }
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -46,12 +40,11 @@ class _MatchesScreenState extends State<MatchesScreen> {
       ),
       body: Consumer2<UserProvider, MatchProvider>(
         builder: (context, userProvider, matchProvider, child) {
-          if (matchProvider.isLoading) {
+          if (matchProvider.isLoading && matchProvider.matches.isEmpty) {
             return const Center(child: CircularProgressIndicator());
           }
 
           final matches = matchProvider.matches;
-
           if (matches.isEmpty) {
             return _buildEmptyState();
           }
@@ -66,8 +59,11 @@ class _MatchesScreenState extends State<MatchesScreen> {
                 userProvider.currentUser!.uid,
               );
 
-              if (otherUser == null) return const SizedBox();
-
+              if (otherUser == null) {
+                // This can happen briefly while user data is loading.
+                // You can return a placeholder or an empty box.
+                return const SizedBox.shrink();
+              }
               return _buildMatchCard(match, otherUser);
             },
           );
@@ -83,30 +79,13 @@ class _MatchesScreenState extends State<MatchesScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.people_outline,
-              size: 80,
-              color: AppConstants.textSecondary,
-            ),
-
+            Icon(Icons.people_outline, size: 80, color: AppConstants.textSecondary),
             const SizedBox(height: 24),
-
-            Text(
-              'No Matches Yet',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: AppConstants.textPrimary,
-              ),
-            ),
-
+            Text('No Matches Yet', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppConstants.textPrimary)),
             const SizedBox(height: 8),
-
             Text(
-              'When you and someone else like each other,\nyou\'ll see them here',
-              style: TextStyle(
-                color: AppConstants.textSecondary,
-              ),
+              "When you and someone else like each other,\nyou'll see them here",
+              style: TextStyle(color: AppConstants.textSecondary),
               textAlign: TextAlign.center,
             ),
           ],
@@ -126,7 +105,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
           child: user.photoUrls.isNotEmpty
               ? ClipOval(
             child: SizedBox.fromSize(
-              size: const Size.fromRadius(30), // Image size
+              size: const Size.fromRadius(30),
               child: PrivateNetworkImage(
                 imageUrl: user.photoUrls.first,
                 fit: BoxFit.cover,
@@ -136,20 +115,10 @@ class _MatchesScreenState extends State<MatchesScreen> {
           )
               : Text(
             user.name.isNotEmpty ? user.name[0].toUpperCase() : '?',
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            ),
+            style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
           ),
         ),
-        title: Text(
-          user.name,
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
+        title: Text(user.name, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -158,21 +127,12 @@ class _MatchesScreenState extends State<MatchesScreen> {
             if (match.lastMessage != null) ...[
               Text(
                 match.lastMessage!,
-                style: TextStyle(
-                  color: AppConstants.textSecondary,
-                  fontSize: 14,
-                ),
+                style: TextStyle(color: AppConstants.textSecondary, fontSize: 14),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
             ] else ...[
-              Text(
-                'Start a conversation!',
-                style: TextStyle(
-                  color: AppConstants.primaryColor,
-                  fontSize: 14,
-                ),
-              ),
+              Text('Start a conversation!', style: TextStyle(color: AppConstants.primaryColor, fontSize: 14)),
             ],
           ],
         ),
@@ -180,19 +140,10 @@ class _MatchesScreenState extends State<MatchesScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             if (match.lastMessageTime != null) ...[
-              Text(
-                Helpers.getTimeAgo(match.lastMessageTime!),
-                style: TextStyle(
-                  color: AppConstants.textSecondary,
-                  fontSize: 12,
-                ),
-              ),
+              Text(Helpers.getTimeAgo(match.lastMessageTime!), style: TextStyle(color: AppConstants.textSecondary, fontSize: 12)),
             ],
             const SizedBox(height: 4),
-            Icon(
-              Icons.chat_bubble_outline,
-              color: AppConstants.primaryColor,
-            ),
+            Icon(Icons.chat_bubble_outline, color: AppConstants.primaryColor),
           ],
         ),
         onTap: () => _openChat(match, user),

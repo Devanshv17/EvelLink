@@ -112,7 +112,7 @@ class ProfileScreen extends StatelessWidget {
                   );
                   if (shouldSignOut == true && context.mounted) {
                     final authService = Provider.of<AuthService>(context, listen: false);
-                    await authService.signOut();
+                    await authService.signOut(context);
                   }
                 },
               ),

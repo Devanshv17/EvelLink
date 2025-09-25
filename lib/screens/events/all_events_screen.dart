@@ -17,16 +17,20 @@ class _AllEventsScreenState extends State<AllEventsScreen> {
   @override
   void initState() {
     super.initState();
-    // Fetch events when the screen is first loaded
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      Provider.of<AllEventsProvider>(context, listen: false).fetchAllEvents();
+      Provider.of<AllEventsProvider>(context, listen: false).listenToAllEvents();
     });
+  }
+
+  @override
+  void dispose() {
+    Provider.of<AllEventsProvider>(context, listen: false).stopListening();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // Using a CustomScrollView to easily combine different scrolling elements
       body: SafeArea(
         child: CustomScrollView(
           slivers: [
@@ -43,7 +47,6 @@ class _AllEventsScreenState extends State<AllEventsScreen> {
                 ),
               ),
             ),
-            // The large carousel for mega events
             SliverToBoxAdapter(
               child: _buildMegaEventsCarousel(),
             ),
@@ -60,7 +63,6 @@ class _AllEventsScreenState extends State<AllEventsScreen> {
                 ),
               ),
             ),
-            // The horizontal list for other events
             _buildHorizontalEventList(),
           ],
         ),
@@ -87,13 +89,11 @@ class _AllEventsScreenState extends State<AllEventsScreen> {
     return Consumer<AllEventsProvider>(
       builder: (context, provider, child) {
         if (provider.isLoading && provider.allEvents.isEmpty) {
-          // Show a loading shimmer or placeholder for the carousel
           return const SizedBox(height: 200, child: Center(child: CircularProgressIndicator()));
         }
-        // Using first 3 events as "mega" events. You can change this logic.
         final megaEvents = provider.allEvents.take(3).toList();
         if (megaEvents.isEmpty) {
-          return const SizedBox.shrink(); // Don't show if there are no mega events
+          return const SizedBox.shrink();
         }
         return SizedBox(
           height: MediaQuery.of(context).size.height * 0.3,
@@ -116,7 +116,6 @@ class _AllEventsScreenState extends State<AllEventsScreen> {
   }
 
   Widget _buildFilterChips() {
-    // These are static for now, but could be dynamic later
     final filters = ['Music', 'Art', 'Tech', 'Food', 'Sports', 'Conference'];
     return SizedBox(
       height: 40,
@@ -140,22 +139,21 @@ class _AllEventsScreenState extends State<AllEventsScreen> {
       child: Consumer<AllEventsProvider>(
         builder: (context, provider, child) {
           if (provider.isLoading && provider.allEvents.isEmpty) {
-            return const SizedBox.shrink(); // Don't show this section while initially loading
+            return const SizedBox.shrink();
           }
-          // The rest of the events after the "mega" ones
           final otherEvents = provider.allEvents.skip(3).toList();
           if (otherEvents.isEmpty) {
             return const SizedBox.shrink();
           }
           return SizedBox(
-            height: 220, // Height for the smaller event cards
+            height: 220,
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 16.0),
               itemCount: otherEvents.length,
               itemBuilder: (context, index) {
                 return SizedBox(
-                  width: 160, // Width for the smaller event cards
+                  width: 160,
                   child: Padding(
                     padding: const EdgeInsets.only(right: 12.0),
                     child: EventCard(
@@ -180,4 +178,3 @@ class _AllEventsScreenState extends State<AllEventsScreen> {
     );
   }
 }
-

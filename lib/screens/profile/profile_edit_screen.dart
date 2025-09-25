@@ -6,6 +6,7 @@ import 'package:evelink/services/storage_service.dart';
 import 'package:evelink/utils/app_constants.dart';
 import 'package:evelink/utils/helpers.dart';
 import 'package:evelink/widgets/interest_chip.dart';
+import 'package:evelink/widgets/private_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
@@ -129,92 +130,92 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-        appBar: AppBar(
-          title: const Text('Edit Profile'),
-          actions: [
-            _isLoading
-                ? const Padding(
-              padding: EdgeInsets.only(right: 16.0),
-              child: Center(
-                child: SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(color: Colors.white),
-                ),
-              ),
-            )
-                : TextButton(
-              onPressed: _updateProfile,
-              child: const Text(
-                'SAVE',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                ),
+      appBar: AppBar(
+        title: const Text('Edit Profile'),
+        actions: [
+          _isLoading
+              ? const Padding(
+            padding: EdgeInsets.only(right: 16.0),
+            child: Center(
+              child: SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(color: Colors.white),
               ),
             ),
-          ],
-        ),
+          )
+              : TextButton(
+            onPressed: _updateProfile,
+            child: const Text(
+              'SAVE',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
       body: Form(
-    key: _formKey,
-    child: SingleChildScrollView(
-    padding: const EdgeInsets.all(16.0),
-    child: Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-    _buildSectionHeader('Photos'),
-    _buildPhotosGrid(),
-    const SizedBox(height: 24),
-    _buildSectionHeader('Basic Info'),
-    TextFormField(
-    controller: _nameController,
-    decoration: const InputDecoration(labelText: 'Name'),
-    validator: (value) => value == null || value.trim().isEmpty ? 'Please enter a name' : null,
-    ),
-    const SizedBox(height: 16),
-    TextFormField(
-    controller: _ageController,
-    decoration: const InputDecoration(labelText: 'Age'),
-    keyboardType: TextInputType.number,
-    validator: (value) {
-    if (value == null || value.isEmpty) return 'Please enter your age';
-    final age = int.tryParse(value);
-    if (age == null || !Helpers.isValidAge(age)) return 'Please enter a valid age (18-100)';
-    return null;
-    },
-    ),
-    const SizedBox(height: 16),
-    TextFormField(
-    controller: _bioController,
-    decoration: const InputDecoration(labelText: 'Bio', alignLabelWithHint: true),
-    maxLines: 4,
-    validator: (value) => value == null || !Helpers.isValidBio(value) ? 'Please enter a bio (10-500 characters)' : null,
-    ),
-    const SizedBox(height: 24),
-    _buildSectionHeader('Interests (${_selectedInterests.length}/10)'),
-    _buildInterestsSection(),
-    const SizedBox(height: 24),
-    _buildSectionHeader('Additional Details'),
-    TextFormField(
-    controller: _locationController,
-    decoration: const InputDecoration(labelText: 'Location'),
-    ),
-    const SizedBox(height: 16),
-    TextFormField(
-    controller: _occupationController,
-    decoration: const InputDecoration(labelText: 'Occupation'),
-    ),
-    const SizedBox(height: 16),
-    TextFormField(
-    controller: _educationController,
-    decoration: const InputDecoration(labelText: 'Education'),
-    ),
-    ],
-    ),
-    ),
-    ),
+        key: _formKey,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildSectionHeader('Photos'),
+              _buildPhotosGrid(),
+              const SizedBox(height: 24),
+              _buildSectionHeader('Basic Info'),
+              TextFormField(
+                controller: _nameController,
+                decoration: const InputDecoration(labelText: 'Name'),
+                validator: (value) => value == null || value.trim().isEmpty ? 'Please enter a name' : null,
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _ageController,
+                decoration: const InputDecoration(labelText: 'Age'),
+                keyboardType: TextInputType.number,
+                validator: (value) {
+                  if (value == null || value.isEmpty) return 'Please enter your age';
+                  final age = int.tryParse(value);
+                  if (age == null || !Helpers.isValidAge(age)) return 'Please enter a valid age (18-100)';
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _bioController,
+                decoration: const InputDecoration(labelText: 'Bio', alignLabelWithHint: true),
+                maxLines: 4,
+                validator: (value) => value == null || !Helpers.isValidBio(value) ? 'Please enter a bio (10-500 characters)' : null,
+              ),
+              const SizedBox(height: 24),
+              _buildSectionHeader('Interests (${_selectedInterests.length}/10)'),
+              _buildInterestsSection(),
+              const SizedBox(height: 24),
+              _buildSectionHeader('Additional Details'),
+              TextFormField(
+                controller: _locationController,
+                decoration: const InputDecoration(labelText: 'Location'),
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _occupationController,
+                decoration: const InputDecoration(labelText: 'Occupation'),
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _educationController,
+                decoration: const InputDecoration(labelText: 'Education'),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
-    }
+  }
 
   Widget _buildSectionHeader(String title) {
     return Padding(
@@ -238,9 +239,12 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
       itemCount: _existingPhotoUrls.length + _newImages.length + 1,
       itemBuilder: (context, index) {
         if (index < _existingPhotoUrls.length) {
-          // Display existing photos from URLs
+          // Display existing photos from URLs using PrivateNetworkImage
           return _buildPhotoItem(
-            imageProvider: CachedNetworkImageProvider(_existingPhotoUrls[index]),
+            imageWidget: PrivateNetworkImage(
+              imageUrl: _existingPhotoUrls[index],
+              fit: BoxFit.cover,
+            ),
             onDelete: () {
               setState(() {
                 _existingPhotoUrls.removeAt(index);
@@ -251,7 +255,10 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
           // Display newly picked photos from files
           final newImageIndex = index - _existingPhotoUrls.length;
           return _buildPhotoItem(
-            imageProvider: FileImage(File(_newImages[newImageIndex].path)),
+            imageWidget: Image.file(
+              File(_newImages[newImageIndex].path),
+              fit: BoxFit.cover,
+            ),
             onDelete: () {
               setState(() {
                 _newImages.removeAt(newImageIndex);
@@ -277,17 +284,12 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
     );
   }
 
-  Widget _buildPhotoItem({required ImageProvider imageProvider, required VoidCallback onDelete}) {
+  Widget _buildPhotoItem({required Widget imageWidget, required VoidCallback onDelete}) {
     return Stack(
       children: [
-        Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(8),
-            image: DecorationImage(
-              image: imageProvider,
-              fit: BoxFit.cover,
-            ),
-          ),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: imageWidget,
         ),
         Positioned(
           top: 4,

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/providers.dart';
 import '../../services/services.dart';
-import '../../models/models.dart';
 import '../../utils/utils.dart';
 import '../../widgets/widgets.dart';
 import 'qr_scanner_screen.dart';
@@ -21,11 +20,11 @@ class _EventsScreenState extends State<EventsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Events'),
+        title: const Text('My Event'),
         actions: [
           IconButton(
             onPressed: _showProfileMenu,
-            icon: const Icon(Icons.person),
+            icon: const Icon(Icons.more_vert),
           ),
         ],
       ),
@@ -61,9 +60,7 @@ class _EventsScreenState extends State<EventsScreen> {
                 color: AppConstants.primaryColor,
               ),
             ),
-            
             const SizedBox(height: 32),
-            
             Text(
               'Join an Event',
               style: TextStyle(
@@ -72,9 +69,7 @@ class _EventsScreenState extends State<EventsScreen> {
                 color: AppConstants.textPrimary,
               ),
             ),
-            
             const SizedBox(height: 16),
-            
             Text(
               'Scan a QR code to join an event and start\nconnecting with people around you',
               style: TextStyle(
@@ -83,9 +78,7 @@ class _EventsScreenState extends State<EventsScreen> {
               ),
               textAlign: TextAlign.center,
             ),
-            
             const SizedBox(height: 48),
-            
             SizedBox(
               width: double.infinity,
               height: 56,
@@ -132,13 +125,11 @@ class _EventsScreenState extends State<EventsScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Profile Info
               Row(
                 children: [
                   CircleAvatar(
                     radius: 30,
                     backgroundColor: Helpers.getRandomColor(user.uid),
-                    // Use ClipOval for a circular image with PrivateNetworkImage
                     child: user.photoUrls.isNotEmpty
                         ? ClipOval(
                       child: PrivateNetworkImage(
@@ -156,33 +147,18 @@ class _EventsScreenState extends State<EventsScreen> {
                       ),
                     ),
                   ),
-
                   const SizedBox(width: 16),
-
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          user.name,
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        Text(
-                          '${user.age} • ${user.profileType.toString().split('.').last}',
-                          style: TextStyle(
-                            color: AppConstants.textSecondary,
-                          ),
-                        ),
+                        Text(user.name, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                        Text('${user.age} • ${user.profileType.toString().split('.').last}', style: TextStyle(color: AppConstants.textSecondary)),
                       ],
                     ),
                   ),
                 ],
               ),
-
-              // ... rest of the menu options
               const SizedBox(height: 24),
               ListTile(
                 leading: const Icon(Icons.edit),
@@ -191,18 +167,8 @@ class _EventsScreenState extends State<EventsScreen> {
                   Navigator.pop(context);
                   Navigator.push(
                     context,
-                    MaterialPageRoute(
-                      builder: (context) => const ProfileEditScreen(),
-                    ),
+                    MaterialPageRoute(builder: (context) => const ProfileEditScreen()),
                   );
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.settings),
-                title: const Text('Settings'),
-                onTap: () {
-                  Navigator.pop(context);
-                  // TODO: Navigate to settings
                 },
               ),
               ListTile(
@@ -215,10 +181,9 @@ class _EventsScreenState extends State<EventsScreen> {
                     title: 'Sign Out',
                     content: 'Are you sure you want to sign out?',
                   );
-
                   if (shouldSignOut == true && mounted) {
                     final authService = Provider.of<AuthService>(context, listen: false);
-                    await authService.signOut();
+                    await authService.signOut(context);
                   }
                 },
               ),
@@ -229,3 +194,4 @@ class _EventsScreenState extends State<EventsScreen> {
     );
   }
 }
+

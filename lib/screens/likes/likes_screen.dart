@@ -13,28 +13,24 @@ class LikesScreen extends StatefulWidget {
 }
 
 class _LikesScreenState extends State<LikesScreen> {
-
-  bool _hasLoaded = false;
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // Use didChangeDependencies instead of initState to safely access providers
-    // and check the flag to ensure data is loaded only once.
-    if (!_hasLoaded) {
-      _loadLikes();
-      setState(() {
-        _hasLoaded = true;
-      });
-    }
+  void initState() {
+    super.initState();
+    // This is the correct place to initiate data loading.
+    // It runs after the first frame is built, ensuring it's safe to use context.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _listenToLikes();
+    });
   }
 
-  void _loadLikes() {
+  void _listenToLikes() {
+    // We get the providers once without listening, as this is a one-time setup call.
     final eventProvider = Provider.of<EventProvider>(context, listen: false);
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final likesProvider = Provider.of<LikesProvider>(context, listen: false);
 
     if (eventProvider.isInEvent && userProvider.currentUser != null) {
-      likesProvider.loadLikes(
+      likesProvider.listenToLikes(
         eventProvider.currentEvent!.eventId,
         userProvider.currentUser!.uid,
       );
@@ -49,6 +45,7 @@ class _LikesScreenState extends State<LikesScreen> {
       ),
       body: Consumer3<EventProvider, UserProvider, LikesProvider>(
         builder: (context, eventProvider, userProvider, likesProvider, child) {
+          // This check is now safe because the listener setup has been moved.
           if (!eventProvider.isInEvent) {
             return _buildNoEventState();
           }
@@ -69,7 +66,6 @@ class _LikesScreenState extends State<LikesScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Stats
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
@@ -85,12 +81,10 @@ class _LikesScreenState extends State<LikesScreen> {
                     ],
                   ),
                 ),
-
                 if (clearLikes.isNotEmpty) ...[
                   const SizedBox(height: 24),
                   _buildSection('Clear Likes', clearLikes, false),
                 ],
-
                 if (hiddenLikes.isNotEmpty) ...[
                   const SizedBox(height: 24),
                   _buildSection('Hidden Likes', hiddenLikes, true),
@@ -110,31 +104,11 @@ class _LikesScreenState extends State<LikesScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.favorite_border,
-              size: 80,
-              color: AppConstants.textSecondary,
-            ),
-            
+            Icon(Icons.favorite_border, size: 80, color: AppConstants.textSecondary),
             const SizedBox(height: 24),
-            
-            Text(
-              'No Event Joined',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: AppConstants.textPrimary,
-              ),
-            ),
-            
+            Text('No Event Joined', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppConstants.textPrimary)),
             const SizedBox(height: 8),
-            
-            Text(
-              'Join an event to see who likes you!',
-              style: TextStyle(
-                color: AppConstants.textSecondary,
-              ),
-            ),
+            Text('Join an event to see who likes you!', style: TextStyle(color: AppConstants.textSecondary)),
           ],
         ),
       ),
@@ -148,32 +122,11 @@ class _LikesScreenState extends State<LikesScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.favorite_border,
-              size: 80,
-              color: AppConstants.textSecondary,
-            ),
-            
+            Icon(Icons.favorite_border, size: 80, color: AppConstants.textSecondary),
             const SizedBox(height: 24),
-            
-            Text(
-              'No Likes Yet',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: AppConstants.textPrimary,
-              ),
-            ),
-            
+            Text('No Likes Yet', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppConstants.textPrimary)),
             const SizedBox(height: 8),
-            
-            Text(
-              'When people like you, they\'ll appear here',
-              style: TextStyle(
-                color: AppConstants.textSecondary,
-              ),
-              textAlign: TextAlign.center,
-            ),
+            Text("When people like you, they'll appear here", style: TextStyle(color: AppConstants.textSecondary), textAlign: TextAlign.center),
           ],
         ),
       ),
@@ -183,27 +136,10 @@ class _LikesScreenState extends State<LikesScreen> {
   Widget _buildStatItem(String label, int count, IconData icon) {
     return Column(
       children: [
-        Icon(
-          icon,
-          color: AppConstants.primaryColor,
-          size: 24,
-        ),
+        Icon(icon, color: AppConstants.primaryColor, size: 24),
         const SizedBox(height: 4),
-        Text(
-          count.toString(),
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: AppConstants.textPrimary,
-          ),
-        ),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            color: AppConstants.textSecondary,
-          ),
-        ),
+        Text(count.toString(), style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppConstants.textPrimary)),
+        Text(label, style: TextStyle(fontSize: 12, color: AppConstants.textSecondary)),
       ],
     );
   }
@@ -212,16 +148,8 @@ class _LikesScreenState extends State<LikesScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          title,
-          style: const TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        
+        Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
         const SizedBox(height: 12),
-        
         GridView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
@@ -256,3 +184,4 @@ class _LikesScreenState extends State<LikesScreen> {
     );
   }
 }
+

@@ -18,23 +18,19 @@ class EventParticipantsScreen extends StatefulWidget {
 }
 
 class _EventParticipantsScreenState extends State<EventParticipantsScreen> {
+
   @override
   void initState() {
     super.initState();
+    // Data listening is now handled by the EventProvider when an event is joined.
+    // We can trigger a refresh here if needed, but it's not strictly necessary
+    // if joinEvent is the only way to get to this screen.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadInitialData();
+      final userProvider = Provider.of<UserProvider>(context, listen: false);
+      if (userProvider.currentUser != null) {
+        Provider.of<EventProvider>(context, listen: false).listenToEventData(userProvider.currentUser!.uid);
+      }
     });
-  }
-
-  void _loadInitialData() {
-    final eventProvider = Provider.of<EventProvider>(context, listen: false);
-    final userProvider = Provider.of<UserProvider>(context, listen: false);
-
-    if (userProvider.currentUser != null) {
-      // Load both participants and the current user's past interactions in this event
-      eventProvider.loadEventParticipants(userProvider.currentUser!.uid);
-      eventProvider.loadUserInteractions(widget.event.eventId, userProvider.currentUser!.uid);
-    }
   }
 
   @override
@@ -52,30 +48,28 @@ class _EventParticipantsScreenState extends State<EventParticipantsScreen> {
       ),
       body: Consumer<EventProvider>(
         builder: (context, eventProvider, child) {
-          if (eventProvider.isLoading) {
+          if (eventProvider.isLoading && eventProvider.eventParticipants.isEmpty) {
             return const Center(child: CircularProgressIndicator());
           }
 
-          // Use the provider's logic to get only users who haven't been swiped on
           final participants = eventProvider.getFilteredParticipants();
 
           if (participants.isEmpty) {
             return _buildEmptyState();
           }
 
-          // --- REVERTED TO A SIMPLE AND RELIABLE GridView.builder ---
           return GridView.builder(
             padding: const EdgeInsets.all(12.0),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 2,
               crossAxisSpacing: 12.0,
               mainAxisSpacing: 12.0,
-              childAspectRatio: 0.75, // Aspect ratio for UserCard
+              childAspectRatio: 0.75,
             ),
             itemCount: participants.length,
             itemBuilder: (context, index) {
               final user = participants[index];
-              return UserCard( // Using the better UserCard
+              return UserCard(
                 user: user,
                 onTap: () => _showUserDetail(user),
               );
@@ -93,31 +87,19 @@ class _EventParticipantsScreenState extends State<EventParticipantsScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.people_outline,
-              size: 80,
-              color: AppConstants.textSecondary,
-            ),
+            Icon(Icons.people_outline, size: 80, color: AppConstants.textSecondary),
             const SizedBox(height: 24),
-            Text(
-              'No one new to see',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: AppConstants.textPrimary,
-              ),
-            ),
+            Text('No one new to see', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppConstants.textPrimary)),
             const SizedBox(height: 8),
-            Text(
-              'You\'ve seen everyone for now. Check back later!',
-              style: TextStyle(
-                color: AppConstants.textSecondary,
-              ),
-              textAlign: TextAlign.center,
-            ),
+            Text("You've seen everyone for now. Check back later!", style: TextStyle(color: AppConstants.textSecondary), textAlign: TextAlign.center),
             const SizedBox(height: 32),
             ElevatedButton.icon(
-              onPressed: _loadInitialData,
+              onPressed: () {
+                final userProvider = Provider.of<UserProvider>(context, listen: false);
+                if (userProvider.currentUser != null) {
+                  Provider.of<EventProvider>(context, listen: false).listenToEventData(userProvider.currentUser!.uid);
+                }
+              },
               icon: const Icon(Icons.refresh),
               label: const Text('Refresh'),
             ),
@@ -134,13 +116,13 @@ class _EventParticipantsScreenState extends State<EventParticipantsScreen> {
       backgroundColor: Colors.transparent,
       builder: (context) => UserDetailBottomSheet(
         user: user,
-        showLikeButtons: true, // Make sure like buttons are shown
+        showLikeButtons: true,
         onLike: (isHidden) {
-          Navigator.pop(context); // Close the bottom sheet
+          Navigator.pop(context);
           _swipeUser(user, true, isHidden: isHidden);
         },
         onPass: () {
-          Navigator.pop(context); // Close the bottom sheet
+          Navigator.pop(context);
           _swipeUser(user, false);
         },
       ),
@@ -161,12 +143,8 @@ class _EventParticipantsScreenState extends State<EventParticipantsScreen> {
       isHidden: isHidden,
     );
 
-    if (isMatch) {
-      // TODO: Navigate to a "It's a Match!" screen
+    if (isMatch && mounted) {
       Helpers.showSnackBar(context, "It's a Match with ${user.name}!", isError: false);
-    } else if (mounted) {
-      final action = isLike ? 'Liked' : 'Passed on';
-      Helpers.showSnackBar(context, '$action ${user.name}');
     }
   }
 

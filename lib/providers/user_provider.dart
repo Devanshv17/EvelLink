@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
 import '../models/models.dart';
@@ -10,6 +11,7 @@ class UserProvider with ChangeNotifier {
   UserModel? _currentUser;
   bool _isLoading = false;
   String? _error;
+  StreamSubscription<UserModel?>? _userSubscription;
 
   UserModel? get currentUser => _currentUser;
   bool get isLoading => _isLoading;
@@ -17,8 +19,10 @@ class UserProvider with ChangeNotifier {
   bool get hasProfile => _currentUser != null;
 
   void _setLoading(bool loading) {
-    _isLoading = loading;
-    notifyListeners();
+    if (_isLoading != loading) {
+      _isLoading = loading;
+      notifyListeners();
+    }
   }
 
   void _setError(String? error) {
@@ -26,38 +30,29 @@ class UserProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> loadUser(String uid) async {
+  void listenToUser(String uid) {
     _setLoading(true);
-    _setError(null);
-
-    try {
-      final user = await _databaseService.getUser(uid);
+    _userSubscription?.cancel();
+    _userSubscription = _databaseService.getUserStream(uid).listen((user) {
       _currentUser = user;
-      notifyListeners();
-    } catch (e) {
-      _setError(e.toString());
-    } finally {
       _setLoading(false);
-    }
+    }, onError: (e) {
+      _setError(e.toString());
+      _setLoading(false);
+    });
   }
 
   Future<bool> createProfile(UserModel user, List<XFile> images) async {
     _setLoading(true);
     _setError(null);
-
     try {
-      // Upload images first
       List<String> photoUrls = [];
       if (images.isNotEmpty) {
         photoUrls = await _storageService.uploadUserPhotos(user.uid, images);
       }
-
-      // Create user with photo URLs
       final userWithPhotos = user.copyWith(photoUrls: photoUrls);
       await _databaseService.createUser(userWithPhotos);
-
       _currentUser = userWithPhotos;
-      notifyListeners();
       return true;
     } catch (e) {
       _setError(e.toString());
@@ -70,25 +65,15 @@ class UserProvider with ChangeNotifier {
   Future<bool> updateProfile(UserModel updatedUser, {List<XFile>? newImages}) async {
     _setLoading(true);
     _setError(null);
-
     try {
       UserModel finalUser = updatedUser;
-
-      // Upload new images if provided
       if (newImages != null && newImages.isNotEmpty) {
-        final newPhotoUrls = await _storageService.uploadUserPhotos(
-          updatedUser.uid,
-          newImages,
-        );
-
-        // Combine existing and new photos
+        final newPhotoUrls = await _storageService.uploadUserPhotos(updatedUser.uid, newImages);
         final allPhotos = [...updatedUser.photoUrls, ...newPhotoUrls];
         finalUser = updatedUser.copyWith(photoUrls: allPhotos);
       }
-
-      await _databaseService.updateUser(finalUser); // Use updateUser instead of createUser
+      await _databaseService.updateUser(finalUser);
       _currentUser = finalUser;
-      notifyListeners();
       return true;
     } catch (e) {
       _setError(e.toString());
@@ -99,8 +84,16 @@ class UserProvider with ChangeNotifier {
   }
 
   void clearUser() {
+    _userSubscription?.cancel();
     _currentUser = null;
     _error = null;
     notifyListeners();
   }
+
+  @override
+  void dispose() {
+    _userSubscription?.cancel();
+    super.dispose();
+  }
 }
+

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../models/models.dart';
 import '../services/services.dart';
@@ -9,6 +10,7 @@ class MatchProvider with ChangeNotifier {
   Map<String, UserModel> _matchedUsers = {};
   bool _isLoading = false;
   String? _error;
+  StreamSubscription<List<MatchModel>>? _matchesSubscription;
 
   List<MatchModel> get matches => _matches;
   Map<String, UserModel> get matchedUsers => _matchedUsers;
@@ -25,33 +27,28 @@ class MatchProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> loadMatches(String userId) async {
+  void listenToMatches(String userId) {
     _setLoading(true);
-    _setError(null);
-
-    try {
-      final matches = await _databaseService.getUserMatches(userId);
+    _matchesSubscription?.cancel();
+    _matchesSubscription = _databaseService.getUserMatchesStream(userId).listen((matches) async {
       _matches = matches;
-
-      // Load user profiles for matched users
-      final userIds = matches
-          .expand((match) => match.users)
-          .where((uid) => uid != userId)
-          .toSet();
-
+      final userIds = matches.expand((match) => match.users).where((uid) => uid != userId).toSet();
       final users = <String, UserModel>{};
       for (String uid in userIds) {
-        final user = await _databaseService.getUser(uid);
-        if (user != null) users[uid] = user;
+        if (!_matchedUsers.containsKey(uid)) {
+          final user = await _databaseService.getUser(uid);
+          if (user != null) users[uid] = user;
+        } else {
+          users[uid] = _matchedUsers[uid]!;
+        }
       }
-
       _matchedUsers = users;
-      notifyListeners();
-    } catch (e) {
-      _setError(e.toString());
-    } finally {
       _setLoading(false);
-    }
+      notifyListeners();
+    }, onError: (e) {
+      _setError(e.toString());
+      _setLoading(false);
+    });
   }
 
   UserModel? getMatchedUser(MatchModel match, String currentUserId) {
@@ -60,9 +57,17 @@ class MatchProvider with ChangeNotifier {
   }
 
   void clearMatches() {
+    _matchesSubscription?.cancel();
     _matches = [];
     _matchedUsers = {};
     _error = null;
     notifyListeners();
   }
+
+  @override
+  void dispose() {
+    _matchesSubscription?.cancel();
+    super.dispose();
+  }
 }
+
