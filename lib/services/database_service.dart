@@ -85,6 +85,11 @@ class DatabaseService {
     return null;
   }
 
+  Future<List<EventModel>> getAllEvents() async {
+    final snapshot = await _firestore.collection('events').orderBy('startTime').get();
+    return snapshot.docs.map((doc) => EventModel.fromMap(doc.data(), doc.id)).toList();
+  }
+
   Future<void> joinEvent(String eventId, String userId) async {
     await _firestore
         .collection('eventParticipants')
@@ -122,7 +127,7 @@ class DatabaseService {
     }, SetOptions(merge: true));
 
     // Check for mutual like to create match
-    return await _checkForMatch(eventId, swiperId, swipedId);
+    return _checkForMatch(eventId, swiperId, swipedId);
   }
 
   Future<void> recordPass(String eventId, String swiperId, String swipedId) async {
@@ -291,3 +296,4 @@ class DatabaseService {
     await batch.commit();
   }
 }
+
