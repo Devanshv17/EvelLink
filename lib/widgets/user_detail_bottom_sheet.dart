@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import '../models/models.dart';
 import '../utils/utils.dart';
 import '../widgets/interest_chip.dart';
+import 'private_network_image.dart';
 
 class UserDetailBottomSheet extends StatelessWidget {
   final UserModel user;
@@ -40,7 +40,7 @@ class UserDetailBottomSheet extends StatelessWidget {
               borderRadius: BorderRadius.circular(2),
             ),
           ),
-          
+
           // Content
           Expanded(
             child: SingleChildScrollView(
@@ -50,33 +50,33 @@ class UserDetailBottomSheet extends StatelessWidget {
                 children: [
                   // Photos
                   _buildPhotosSection(),
-                  
+
                   const SizedBox(height: 20),
-                  
+
                   // Basic info
                   _buildBasicInfo(),
-                  
+
                   const SizedBox(height: 20),
-                  
+
                   // Bio
                   if (user.bio.isNotEmpty) _buildBioSection(),
-                  
+
                   const SizedBox(height: 20),
-                  
+
                   // Interests
                   if (user.interests.isNotEmpty) _buildInterestsSection(),
-                  
+
                   const SizedBox(height: 20),
-                  
+
                   // Additional details
                   _buildAdditionalDetails(),
-                  
+
                   const SizedBox(height: 100), // Space for buttons
                 ],
               ),
             ),
           ),
-          
+
           // Action buttons
           if (showLikeButtons) _buildActionButtons(context),
         ],
@@ -94,7 +94,7 @@ class UserDetailBottomSheet extends StatelessWidget {
         ),
         child: Center(
           child: Text(
-            user.name[0].toUpperCase(),
+            user.name.isNotEmpty ? user.name[0].toUpperCase() : '?',
             style: const TextStyle(
               color: Colors.white,
               fontSize: 80,
@@ -105,7 +105,7 @@ class UserDetailBottomSheet extends StatelessWidget {
       );
     }
 
-    return Container(
+    return SizedBox(
       height: 400,
       child: PageView.builder(
         itemCount: user.photoUrls.length,
@@ -117,16 +117,16 @@ class UserDetailBottomSheet extends StatelessWidget {
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(AppConstants.borderRadius),
-              child: CachedNetworkImage(
+              child: PrivateNetworkImage(
                 imageUrl: user.photoUrls[index],
                 fit: BoxFit.cover,
-                placeholder: (context, url) => Container(
+                placeholder: Container(
                   color: Colors.grey.shade200,
                   child: const Center(
                     child: CircularProgressIndicator(),
                   ),
                 ),
-                errorWidget: (context, url, error) => Container(
+                errorWidget: Container(
                   color: Colors.grey.shade200,
                   child: const Icon(
                     Icons.error,
@@ -173,9 +173,9 @@ class UserDetailBottomSheet extends StatelessWidget {
             ),
           ],
         ),
-        
+
         const SizedBox(height: 8),
-        
+
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
@@ -206,9 +206,9 @@ class UserDetailBottomSheet extends StatelessWidget {
             fontWeight: FontWeight.bold,
           ),
         ),
-        
+
         const SizedBox(height: 8),
-        
+
         Text(
           user.bio,
           style: TextStyle(
@@ -232,9 +232,9 @@ class UserDetailBottomSheet extends StatelessWidget {
             fontWeight: FontWeight.bold,
           ),
         ),
-        
+
         const SizedBox(height: 12),
-        
+
         Wrap(
           spacing: 8,
           runSpacing: 8,
@@ -252,15 +252,15 @@ class UserDetailBottomSheet extends StatelessWidget {
 
   Widget _buildAdditionalDetails() {
     final details = <MapEntry<String, String>>[];
-    
+
     if (user.location != null && user.location!.isNotEmpty) {
       details.add(MapEntry('Location', user.location!));
     }
-    
+
     if (user.occupation != null && user.occupation!.isNotEmpty) {
       details.add(MapEntry('Occupation', user.occupation!));
     }
-    
+
     if (user.education != null && user.education!.isNotEmpty) {
       details.add(MapEntry('Education', user.education!));
     }
@@ -277,9 +277,9 @@ class UserDetailBottomSheet extends StatelessWidget {
             fontWeight: FontWeight.bold,
           ),
         ),
-        
+
         const SizedBox(height: 12),
-        
+
         ...details.map((detail) => Padding(
           padding: const EdgeInsets.only(bottom: 12),
           child: Row(
@@ -295,7 +295,7 @@ class UserDetailBottomSheet extends StatelessWidget {
                   ),
                 ),
               ),
-              
+
               Expanded(
                 child: Text(
                   detail.value,
@@ -351,9 +351,9 @@ class UserDetailBottomSheet extends StatelessWidget {
                 ),
               ),
             ),
-            
+
             const SizedBox(width: 12),
-            
+
             // Hidden like button
             Expanded(
               child: SizedBox(
@@ -377,9 +377,9 @@ class UserDetailBottomSheet extends StatelessWidget {
                 ),
               ),
             ),
-            
+
             const SizedBox(width: 12),
-            
+
             // Clear like button
             Expanded(
               child: SizedBox(
