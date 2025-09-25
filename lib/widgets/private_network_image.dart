@@ -1,11 +1,11 @@
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:evelink/services/storage_service.dart';
 import 'package:flutter/material.dart';
-import 'dart:typed_data';
-import '../services/services.dart';
 import '../utils/utils.dart';
 
 /// A widget that displays an image from a private Backblaze B2 bucket by
-/// handling the necessary authorization headers.
-class PrivateNetworkImage extends StatefulWidget {
+/// handling the necessary authorization headers and caching the image.
+class PrivateNetworkImage extends StatelessWidget {
   final String imageUrl;
   final BoxFit fit;
   final String? seedForFallbackColor;
@@ -22,50 +22,26 @@ class PrivateNetworkImage extends StatefulWidget {
   });
 
   @override
-  State<PrivateNetworkImage> createState() => _PrivateNetworkImageState();
-}
-
-class _PrivateNetworkImageState extends State<PrivateNetworkImage> {
-  // Use a Future to hold the state of the image fetch operation.
-  late Future<Uint8List?> _imageFuture;
-  final StorageService _storageService = StorageService();
-
-  @override
-  void initState() {
-    super.initState();
-    // Start fetching the image data when the widget is first created.
-    _imageFuture = _storageService.fetchPrivateImageData(widget.imageUrl);
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return FutureBuilder<Uint8List?>(
-      future: _imageFuture,
-      builder: (context, snapshot) {
-        // While waiting for the image, show a placeholder.
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return widget.placeholder ??
-              Container(
-                color: Helpers.getRandomColor(widget.seedForFallbackColor ?? 'default').withOpacity(0.3),
-                child: const Center(child: CircularProgressIndicator()),
-              );
-        }
-
-        // If the fetch fails or returns no data, show an error icon.
-        if (snapshot.hasError || !snapshot.hasData || snapshot.data == null) {
-          return widget.errorWidget ??
-              Container(
-                color: Colors.grey.shade200,
-                child: const Center(child: Icon(Icons.error_outline, color: Colors.red)),
-              );
-        }
-
-        // If data is successfully fetched, display it using Image.memory.
-        return Image.memory(
-          snapshot.data!,
-          fit: widget.fit,
-        );
-      },
+    // Use the CachedNetworkImage widget with our custom B2CacheManager.
+    return CachedNetworkImage(
+      imageUrl: imageUrl,
+      cacheManager: B2CacheManager(), // This is our custom manager
+      fit: fit,
+      placeholder: (context, url) =>
+      placeholder ??
+          Container(
+            color: Helpers.getRandomColor(seedForFallbackColor ?? 'default')
+                .withOpacity(0.3),
+            child: const Center(child: CircularProgressIndicator()),
+          ),
+      errorWidget: (context, url, error) =>
+      errorWidget ??
+          Container(
+            color: Colors.grey.shade200,
+            child: const Center(
+                child: Icon(Icons.error_outline, color: Colors.red)),
+          ),
     );
   }
 }

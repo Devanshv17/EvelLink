@@ -4,30 +4,52 @@ import '../models/models.dart';
 class DatabaseService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
+  // In-memory cache for user profiles
+  final Map<String, UserModel> _userCache = {};
+
   // User operations
   Future<void> createUser(UserModel user) async {
     await _firestore.collection('users').doc(user.uid).set(user.toMap());
+    // Add the new user to the cache
+    _userCache[user.uid] = user;
   }
 
   Future<void> updateUser(UserModel user) async {
     await _firestore.collection('users').doc(user.uid).update(user.toMap());
+    // Update the user in the cache
+    _userCache[user.uid] = user;
   }
 
   Future<UserModel?> getUser(String uid) async {
+    // 1. Check if the user is in the cache first
+    if (_userCache.containsKey(uid)) {
+      print('CACHE HIT: Returning user $uid from cache.');
+      return _userCache[uid];
+    }
+
+    // 2. If not in cache, fetch from Firestore
+    print('CACHE MISS: Fetching user $uid from Firestore.');
     final doc = await _firestore.collection('users').doc(uid).get();
     if (doc.exists) {
-      return UserModel.fromMap(doc.data()!);
+      final user = UserModel.fromMap(doc.data()!);
+      // 3. Store the fetched user in the cache for next time
+      _userCache[uid] = user;
+      return user;
     }
     return null;
   }
 
   Future<bool> userExists(String uid) async {
+    // Check cache first for efficiency
+    if (_userCache.containsKey(uid)) {
+      return true;
+    }
     final doc = await _firestore.collection('users').doc(uid).get();
     return doc.exists;
   }
 
-  Future<List<UserModel>> getEventParticipants(String eventId, String currentUserId) async {
-    // Get all participants in event
+  Future<List<UserModel>> getEventParticipants(
+      String eventId, String currentUserId) async {
     final participantsQuery = await _firestore
         .collection('eventParticipants')
         .doc(eventId)
@@ -43,15 +65,15 @@ class DatabaseService {
 
     if (participantIds.isEmpty) return [];
 
-    // Get user profiles for participants
-    final usersQuery = await _firestore
-        .collection('users')
-        .where('uid', whereIn: participantIds)
-        .get();
-
-    return usersQuery.docs
-        .map((doc) => UserModel.fromMap(doc.data()))
-        .toList();
+    // Efficiently fetch multiple users, leveraging the cache for each one
+    final List<UserModel> participants = [];
+    for (String id in participantIds) {
+      final user = await getUser(id); // This will use the cache
+      if (user != null) {
+        participants.add(user);
+      }
+    }
+    return participants;
   }
 
   // Event operations
@@ -85,7 +107,8 @@ class DatabaseService {
   }
 
   // Interaction operations
-  Future<bool> recordLike(String eventId, String swiperId, String swipedId, {bool isHidden = false}) async {
+  Future<bool> recordLike(String eventId, String swiperId, String swipedId,
+      {bool isHidden = false}) async {
     final docRef = _firestore
         .collection('interactions')
         .doc(eventId)
@@ -114,7 +137,8 @@ class DatabaseService {
     }, SetOptions(merge: true));
   }
 
-  Future<Map<String, dynamic>?> getUserInteractions(String eventId, String userId) async {
+  Future<Map<String, dynamic>?> getUserInteractions(
+      String eventId, String userId) async {
     final doc = await _firestore
         .collection('interactions')
         .doc(eventId)
@@ -163,7 +187,8 @@ class DatabaseService {
     return hiddenLikedBy;
   }
 
-  Future<bool> _checkForMatch(String eventId, String swiperId, String swipedId) async {
+  Future<bool> _checkForMatch(
+      String eventId, String swiperId, String swipedId) async {
     // Check if the swiped user also liked the swiper
     final swipedUserDoc = await _firestore
         .collection('interactions')
@@ -259,10 +284,10 @@ class DatabaseService {
     batch.delete(interactionsRef);
 
     // Delete event participants
-    final participantsRef = _firestore.collection('eventParticipants').doc(eventId);
+    final participantsRef =
+    _firestore.collection('eventParticipants').doc(eventId);
     batch.delete(participantsRef);
 
     await batch.commit();
   }
 }
-

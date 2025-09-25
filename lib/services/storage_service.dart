@@ -1,12 +1,13 @@
-import 'dart:io';
 import 'dart:convert';
-import 'dart:typed_data'; // Required for Uint8List
+import 'dart:io';
+
+import 'package:crypto/crypto.dart';
+import 'package:evelink/utils/b2_config.dart';
+import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
-import 'package:crypto/crypto.dart';
 import 'package:mime/mime.dart';
 import 'package:path/path.dart' as path;
-import '../utils/b2_config.dart';
 
 class StorageService {
   final ImagePicker _picker = ImagePicker();
@@ -25,42 +26,13 @@ class StorageService {
   String? _bucketId;
   String? _accountId;
 
-  // --- NEW METHOD TO FETCH IMAGE DATA ---
-  Future<Uint8List?> fetchPrivateImageData(String url) async {
-    // Ensure we have a valid authorization token.
-    if (_authorizationToken == null) {
-      final authSuccess = await _authorize();
-      if (!authSuccess) {
-        print('B2 Authorization failed. Cannot fetch image.');
-        return null;
-      }
-    }
-
-    try {
-      final response = await http.get(
-        Uri.parse(url),
-        headers: {
-          // This is the crucial part: adding the token to the request header.
-          'Authorization': _authorizationToken!,
-        },
-      );
-
-      if (response.statusCode == 200) {
-        // If successful, return the raw image bytes.
-        return response.bodyBytes;
-      } else {
-        print('Failed to fetch private image. Status code: ${response.statusCode}, Body: ${response.body}');
-        return null;
-      }
-    } catch (e) {
-      print('Error fetching private image data: $e');
-      return null;
-    }
-  }
-
   Future<bool> _authorize() async {
+    // If we are already authorized, no need to do it again.
+    if (_authorizationToken != null) return true;
+
     try {
-      final credentials = base64Encode(utf8.encode('${B2Config.keyId}:${B2Config.applicationKey}'));
+      final credentials = base64Encode(
+          utf8.encode('${B2Config.keyId}:${B2Config.applicationKey}'));
 
       final response = await http.get(
         Uri.parse('https://api.backblazeb2.com/b2api/v2/b2_authorize_account'),
@@ -117,10 +89,8 @@ class StorageService {
   }
 
   Future<Map<String, String>?> _getUploadUrl() async {
-    if (_authorizationToken == null || _bucketId == null) {
-      final authSuccess = await _authorize();
-      if (!authSuccess) return null;
-    }
+    final authSuccess = await _authorize();
+    if (!authSuccess) return null;
 
     try {
       final response = await http.post(
@@ -151,7 +121,8 @@ class StorageService {
 
     try {
       final fileBytes = await file.readAsBytes();
-      final contentType = lookupMimeType(fileName) ?? 'application/octet-stream';
+      final contentType =
+          lookupMimeType(fileName) ?? 'application/octet-stream';
       final sha1Hash = sha1.convert(fileBytes).toString();
 
       final response = await http.post(
@@ -175,14 +146,16 @@ class StorageService {
     return null;
   }
 
-  Future<List<String>> uploadUserPhotos(String userId, List<XFile> images) async {
+  Future<List<String>> uploadUserPhotos(
+      String userId, List<XFile> images) async {
     final photoUrls = <String>[];
 
     for (var i = 0; i < images.length; i++) {
       final file = File(images[i].path);
       final timestamp = DateTime.now().millisecondsSinceEpoch;
       final ext = path.extension(images[i].path).toLowerCase();
-      final fileName = '${B2Config.userPhotosPrefix}$userId/image_${timestamp}_$i$ext';
+      final fileName =
+          '${B2Config.userPhotosPrefix}$userId/image_${timestamp}_$i$ext';
 
       final url = await _uploadFile(file, fileName);
       if (url != null) {
@@ -207,3 +180,42 @@ class StorageService {
   }
 }
 
+/// A custom CacheManager that uses a custom HttpFileService to add
+/// authorization headers to every request.
+class B2CacheManager extends CacheManager {
+  static const key = 'b2Cache';
+  static final B2CacheManager _instance = B2CacheManager._();
+
+  factory B2CacheManager() {
+    return _instance;
+  }
+
+  B2CacheManager._()
+      : super(Config(
+    key,
+    stalePeriod: const Duration(days: 7),
+    maxNrOfCacheObjects: 200,
+    fileService: B2HttpFileService(),
+  ));
+}
+
+/// A custom HttpFileService that authorizes with Backblaze B2 before
+/// making a request.
+class B2HttpFileService extends HttpFileService {
+  @override
+  Future<FileServiceResponse> get(String url,
+      {Map<String, String>? headers}) async {
+    final storageService = StorageService();
+    // Ensure we're authorized before making a request
+    await storageService._authorize();
+
+    final authHeaders = {
+      'Authorization': storageService._authorizationToken ?? '',
+    };
+    if (headers != null) {
+      authHeaders.addAll(headers);
+    }
+    // Call the original get method with the new headers
+    return super.get(url, headers: authHeaders);
+  }
+}
