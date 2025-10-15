@@ -30,6 +30,13 @@ class LikesProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  // Add this method to your LikesProvider
+  void removeLike(String userId) {
+    _clearLikes.removeWhere((user) => user.uid == userId);
+    _hiddenLikes.removeWhere((user) => user.uid == userId);
+    notifyListeners();
+  }
+
   void listenToLikes(String eventId, String userId) {
     _setLoading(true);
     _setError(null);

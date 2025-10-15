@@ -6,40 +6,36 @@ import 'private_network_image.dart';
 
 class UserDetailBottomSheet extends StatelessWidget {
   final UserModel user;
-  final bool showLikeButtons;
-  final Function(bool isHidden)? onLike;
-  final VoidCallback? onPass;
+  final bool showActionButtons;
+  final VoidCallback? onSkip;
+  final VoidCallback? onSpark;
+  final bool isHiddenLike;
+  final VoidCallback? onLike;
 
   const UserDetailBottomSheet({
     super.key,
     required this.user,
-    this.showLikeButtons = true,
+    this.showActionButtons = true,
+    this.onSkip,
+    this.isHiddenLike = false,
+    this.onSpark,
     this.onLike,
-    this.onPass,
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: MediaQuery.of(context).size.height * 0.85,
+      height: MediaQuery.of(context).size.height * 0.9,
       decoration: const BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.vertical(
-          top: Radius.circular(20),
+          top: Radius.circular(24),
         ),
       ),
       child: Column(
         children: [
-          // Handle
-          Container(
-            margin: const EdgeInsets.symmetric(vertical: 12),
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: Colors.grey.shade300,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
+          // Custom Header with gradient
+          _buildHeader(context),
 
           // Content
           Expanded(
@@ -48,28 +44,31 @@ class UserDetailBottomSheet extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Photos
+                  // Photos Carousel - with blur if hidden like
                   _buildPhotosSection(),
 
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 24),
 
-                  // Basic info
+                  // Basic Info with improved layout
                   _buildBasicInfo(),
 
                   const SizedBox(height: 20),
 
-                  // Bio
-                  if (user.bio.isNotEmpty) _buildBioSection(),
+                  // Bio Section - hide if hidden like
+                  if (!isHiddenLike && user.bio.isNotEmpty) _buildBioSection(),
 
                   const SizedBox(height: 20),
 
-                  // Interests
-                  if (user.interests.isNotEmpty) _buildInterestsSection(),
+                  // Interests with better chips - hide if hidden like
+                  if (!isHiddenLike && user.interests.isNotEmpty) _buildInterestsSection(),
 
                   const SizedBox(height: 20),
 
-                  // Additional details
-                  _buildAdditionalDetails(),
+                  // Additional Details in card layout - hide if hidden like
+                  if (!isHiddenLike) _buildAdditionalDetails(),
+
+                  // Hidden like message
+                  if (isHiddenLike) _buildHiddenLikeMessage(),
 
                   const SizedBox(height: 100), // Space for buttons
                 ],
@@ -77,335 +76,780 @@ class UserDetailBottomSheet extends StatelessWidget {
             ),
           ),
 
-          // Action buttons
-          if (showLikeButtons) _buildActionButtons(context),
+          // New Action Buttons - show different buttons for hidden likes
+          if (showActionButtons) _buildActionButtons(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHiddenLikeMessage() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      margin: const EdgeInsets.symmetric(vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.purple.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.purple.withOpacity(0.3)),
+      ),
+      child: Column(
+        children: [
+          Icon(Icons.auto_awesome, color: Colors.purple, size: 40),
+          const SizedBox(height: 12),
+          Text(
+            'Secret Admirer',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.purple,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'This person sparked you! Like them back to reveal their identity and see their full profile.',
+            style: TextStyle(
+              color: Colors.purple.withOpacity(0.8),
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeader(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            AppConstants.primaryColor.withOpacity(0.9),
+            AppConstants.secondaryColor.withOpacity(0.9),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: const BorderRadius.vertical(
+          top: Radius.circular(24),
+        ),
+      ),
+      child: Row(
+        children: [
+          IconButton(
+            onPressed: () => Navigator.pop(context),
+            icon: const Icon(Icons.close, color: Colors.white, size: 24),
+          ),
+          const Spacer(),
+          Text(
+            isHiddenLike ? 'Secret Admirer' : 'Profile Details',
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
+          const Spacer(),
+          const SizedBox(width: 48), // For balance
         ],
       ),
     );
   }
 
   Widget _buildPhotosSection() {
-    if (user.photoUrls.isEmpty) {
+    if (isHiddenLike) {
       return Container(
         height: 300,
         decoration: BoxDecoration(
-          color: Helpers.getRandomColor(user.uid),
-          borderRadius: BorderRadius.circular(AppConstants.borderRadius),
+          borderRadius: BorderRadius.circular(16),
+          color: Colors.grey.withOpacity(0.3),
         ),
-        child: Center(
-          child: Text(
-            user.name.isNotEmpty ? user.name[0].toUpperCase() : '?',
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 80,
-              fontWeight: FontWeight.bold,
+        child: BackdropFilter(
+          filter: const ColorFilter.mode(Colors.grey, BlendMode.saturation),
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.auto_awesome, size: 60, color: Colors.purple),
+                const SizedBox(height: 16),
+                Text(
+                  'Profile Hidden',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.purple,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Like back to reveal photos',
+                  style: TextStyle(
+                    color: Colors.purple.withOpacity(0.8),
+                  ),
+                ),
+              ],
             ),
           ),
         ),
       );
     }
 
+    if (user.photoUrls.isEmpty) {
+      return Container(
+        height: 300,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              AppConstants.primaryColor.withOpacity(0.7),
+              AppConstants.secondaryColor.withOpacity(0.7),
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                user.name.isNotEmpty ? user.name[0].toUpperCase() : '?',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 80,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'No Photos',
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.8),
+                  fontSize: 16,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return SizedBox(
-      height: 400,
-      child: PageView.builder(
-        itemCount: user.photoUrls.length,
-        itemBuilder: (context, index) {
-          return Container(
-            margin: const EdgeInsets.symmetric(horizontal: 4),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(AppConstants.borderRadius),
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(AppConstants.borderRadius),
-              child: PrivateNetworkImage(
-                imageUrl: user.photoUrls[index],
-                fit: BoxFit.cover,
-                placeholder: Container(
-                  color: Colors.grey.shade200,
-                  child: const Center(
-                    child: CircularProgressIndicator(),
+      height: 350,
+      child: Stack(
+        children: [
+          PageView.builder(
+            itemCount: user.photoUrls.length,
+            itemBuilder: (context, index) {
+              return Container(
+                margin: const EdgeInsets.symmetric(horizontal: 4),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.2),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: PrivateNetworkImage(
+                    imageUrl: user.photoUrls[index],
+                    fit: BoxFit.cover,
+                    placeholder: Container(
+                      color: Colors.grey.shade200,
+                      child: Center(
+                        child: CircularProgressIndicator(
+                          valueColor: AlwaysStoppedAnimation<Color>(AppConstants.primaryColor),
+                        ),
+                      ),
+                    ),
+                    errorWidget: Container(
+                      color: Colors.grey.shade200,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.error_outline,
+                            color: AppConstants.textLight,
+                            size: 50,
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Failed to load image',
+                            style: TextStyle(
+                              color: AppConstants.textLight,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
-                errorWidget: Container(
-                  color: Colors.grey.shade200,
-                  child: const Icon(
-                    Icons.error,
-                    size: 50,
+              );
+            },
+          ),
+
+          // Photo count indicator
+          if (user.photoUrls.length > 1)
+            Positioned(
+              top: 16,
+              right: 16,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.6),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  '1/${user.photoUrls.length}',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
             ),
-          );
-        },
+        ],
       ),
     );
   }
 
   Widget _buildBasicInfo() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
+    if (isHiddenLike) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppConstants.backgroundColor,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
           children: [
-            Expanded(
-              child: Text(
-                user.name,
-                style: const TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
+            // Blurred Avatar for hidden like
+            Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.grey.withOpacity(0.5),
+                border: Border.all(
+                  color: Colors.purple,
+                  width: 3,
+                ),
+              ),
+              child: BackdropFilter(
+                filter: const ColorFilter.mode(Colors.grey, BlendMode.saturation),
+                child: Center(
+                  child: Icon(Icons.person, size: 40, color: Colors.white),
                 ),
               ),
             ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: AppConstants.primaryColor.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Text(
-                '${user.age}',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: AppConstants.primaryColor,
-                ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Secret Admirer',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.purple,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.purple,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      'Spark Received',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Icon(Icons.auto_awesome, size: 16, color: Colors.purple),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Like back to reveal identity',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: AppConstants.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
           ],
         ),
+      );
+    }
 
-        const SizedBox(height: 8),
-
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(
-            color: AppConstants.accentColor.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Text(
-            user.profileType.toString().split('.').last.toUpperCase(),
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: AppConstants.accentColor,
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppConstants.backgroundColor,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          // Avatar
+          Container(
+            width: 80,
+            height: 80,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: AppConstants.primaryColor,
+                width: 3,
+              ),
+            ),
+            child: ClipOval(
+              child: user.photoUrls.isNotEmpty
+                  ? PrivateNetworkImage(
+                imageUrl: user.photoUrls.first,
+                fit: BoxFit.cover,
+              )
+                  : Container(
+                color: AppConstants.primaryColor.withOpacity(0.1),
+                child: Center(
+                  child: Text(
+                    user.name.isNotEmpty ? user.name[0].toUpperCase() : '?',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: AppConstants.primaryColor,
+                    ),
+                  ),
+                ),
+              ),
             ),
           ),
-        ),
-      ],
+
+          const SizedBox(width: 16),
+
+          // Name and details
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        user.name,
+                        style: const TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: AppConstants.primaryColor,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        '${user.age}',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 8),
+
+                if (user.profileType != null)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppConstants.accentColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      user.profileType.toString().split('.').last.toUpperCase(),
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: AppConstants.accentColor,
+                      ),
+                    ),
+                  ),
+
+                const SizedBox(height: 8),
+
+                if (user.location != null && user.location!.isNotEmpty)
+                  Row(
+                    children: [
+                      Icon(Icons.location_on, size: 16, color: AppConstants.textLight),
+                      const SizedBox(width: 4),
+                      Text(
+                        user.location!,
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: AppConstants.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
   Widget _buildBioSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'About',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-
-        const SizedBox(height: 8),
-
-        Text(
-          user.bio,
-          style: TextStyle(
-            fontSize: 16,
-            color: AppConstants.textSecondary,
-            height: 1.4,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildInterestsSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Interests',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-
-        const SizedBox(height: 12),
-
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: user.interests.map((interest) {
-            return InterestChip(
-              label: interest,
-              isSelected: false,
-              onTap: () {}, // Read-only
-            );
-          }).toList(),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildAdditionalDetails() {
-    final details = <MapEntry<String, String>>[];
-
-    if (user.location != null && user.location!.isNotEmpty) {
-      details.add(MapEntry('Location', user.location!));
-    }
-
-    if (user.occupation != null && user.occupation!.isNotEmpty) {
-      details.add(MapEntry('Occupation', user.occupation!));
-    }
-
-    if (user.education != null && user.education!.isNotEmpty) {
-      details.add(MapEntry('Education', user.education!));
-    }
-
-    if (details.isEmpty) return const SizedBox();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Details',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-
-        const SizedBox(height: 12),
-
-        ...details.map((detail) => Padding(
-          padding: const EdgeInsets.only(bottom: 12),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              SizedBox(
-                width: 100,
-                child: Text(
-                  detail.key,
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: AppConstants.textSecondary,
-                  ),
-                ),
-              ),
-
-              Expanded(
-                child: Text(
-                  detail.value,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                  ),
+              Icon(Icons.info_outline, color: AppConstants.primaryColor, size: 20),
+              const SizedBox(width: 8),
+              const Text(
+                'About Me',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
             ],
           ),
-        )).toList(),
-      ],
+
+          const SizedBox(height: 12),
+
+          Text(
+            user.bio,
+            style: TextStyle(
+              fontSize: 16,
+              color: AppConstants.textSecondary,
+              height: 1.5,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _buildActionButtons(BuildContext context) {
+  Widget _buildInterestsSection() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.interests_outlined, color: AppConstants.primaryColor, size: 20),
+              const SizedBox(width: 8),
+              const Text(
+                'Interests',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 12),
+
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: user.interests.map((interest) {
+              return Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      AppConstants.primaryColor.withOpacity(0.8),
+                      AppConstants.secondaryColor.withOpacity(0.8),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  interest,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: Colors.white,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAdditionalDetails() {
+    final details = <Map<String, dynamic>>[];
+
+    if (user.occupation != null && user.occupation!.isNotEmpty) {
+      details.add({
+        'icon': Icons.work_outline,
+        'label': 'Occupation',
+        'value': user.occupation!,
+      });
+    }
+
+    if (user.education != null && user.education!.isNotEmpty) {
+      details.add({
+        'icon': Icons.school_outlined,
+        'label': 'Education',
+        'value': user.education!,
+      });
+    }
+
+    if (user.location != null && user.location!.isNotEmpty) {
+      details.add({
+        'icon': Icons.location_on_outlined,
+        'label': 'Location',
+        'value': user.location!,
+      });
+    }
+
+    if (details.isEmpty) return const SizedBox();
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.details_outlined, color: AppConstants.primaryColor, size: 20),
+              const SizedBox(width: 8),
+              const Text(
+                'Details',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 12),
+
+          ...details.map((detail) => Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: AppConstants.primaryColor.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    detail['icon'] as IconData,
+                    color: AppConstants.primaryColor,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        detail['label'] as String,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppConstants.textLight,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        detail['value'] as String,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          )).toList(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionButtons() {
+    if (isHiddenLike) {
+      // Special action buttons for hidden likes - only Skip and Like (no Spark)
+      return Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 20,
+              offset: const Offset(0, -5),
+            ),
+          ],
+        ),
+        child: SafeArea(
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              // Skip Button
+              _buildActionButton(
+                Icons.close,
+                'Skip',
+                Colors.red,
+                onSkip ?? () {},
+              ),
+
+              // Like Button (to reveal hidden admirer)
+              _buildActionButton(
+                Icons.favorite,
+                'Like Back',
+                AppConstants.primaryColor,
+                onLike ?? () {},
+                isHighlighted: true,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // Normal action buttons for regular profiles
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, -2),
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 20,
+            offset: const Offset(0, -5),
           ),
         ],
       ),
       child: SafeArea(
         child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
-            // Pass button
-            Expanded(
-              child: SizedBox(
-                height: 50,
-                child: OutlinedButton.icon(
-                  onPressed: () {
-                    Navigator.pop(context);
-                    onPass?.call();
-                  },
-                  icon: const Icon(Icons.close, color: Colors.red),
-                  label: const Text(
-                    'Pass',
-                    style: TextStyle(color: Colors.red),
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: Colors.red),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(25),
-                    ),
-                  ),
-                ),
-              ),
+            // Skip Button
+            _buildActionButton(
+              Icons.close,
+              'Skip',
+              Colors.red,
+              onSkip ?? () {},
             ),
 
-            const SizedBox(width: 12),
-
-            // Hidden like button
-            Expanded(
-              child: SizedBox(
-                height: 50,
-                child: OutlinedButton.icon(
-                  onPressed: () {
-                    Navigator.pop(context);
-                    onLike?.call(true);
-                  },
-                  icon: Icon(Icons.favorite_border, color: AppConstants.primaryColor),
-                  label: Text(
-                    'Like',
-                    style: TextStyle(color: AppConstants.primaryColor),
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    side: BorderSide(color: AppConstants.primaryColor),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(25),
-                    ),
-                  ),
-                ),
-              ),
+            // Spark Button (Hidden Like)
+            _buildActionButton(
+              Icons.auto_awesome,
+              'Spark',
+              Colors.purple,
+              onSpark ?? () {},
+              isHighlighted: true,
             ),
 
-            const SizedBox(width: 12),
-
-            // Clear like button
-            Expanded(
-              child: SizedBox(
-                height: 50,
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    Navigator.pop(context);
-                    onLike?.call(false);
-                  },
-                  icon: const Icon(Icons.favorite, color: Colors.white),
-                  label: const Text(
-                    'Super Like',
-                    style: TextStyle(color: Colors.white),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppConstants.primaryColor,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(25),
-                    ),
-                  ),
-                ),
-              ),
+            // Like Button
+            _buildActionButton(
+              Icons.favorite,
+              'Like',
+              AppConstants.primaryColor,
+              onLike ?? () {},
             ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildActionButton(IconData icon, String label, Color color, VoidCallback onTap, {bool isHighlighted = false}) {
+    return Column(
+      children: [
+        Container(
+          width: 70,
+          height: 70,
+          decoration: BoxDecoration(
+            color: isHighlighted ? color.withOpacity(0.15) : Colors.grey.withOpacity(0.1),
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: isHighlighted ? color : Colors.transparent,
+              width: 3,
+            ),
+            boxShadow: isHighlighted ? [
+              BoxShadow(
+                color: color.withOpacity(0.3),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ] : null,
+          ),
+          child: IconButton(
+            onPressed: onTap,
+            icon: Icon(icon, color: color, size: 32),
+            style: IconButton.styleFrom(
+              backgroundColor: Colors.transparent,
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          label,
+          style: TextStyle(
+            color: color,
+            fontWeight: FontWeight.w600,
+            fontSize: 14,
+          ),
+        ),
+      ],
     );
   }
 }

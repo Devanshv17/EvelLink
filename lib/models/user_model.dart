@@ -64,6 +64,8 @@ class UserModel {
     );
   }
 
+  get profession => null;
+
   UserModel copyWith({
     String? uid,
     String? name,

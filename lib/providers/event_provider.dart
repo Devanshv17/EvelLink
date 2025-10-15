@@ -91,6 +91,11 @@ class EventProvider with ChangeNotifier {
     _listenToUserInteractions(_currentEvent!.eventId, userId);
   }
 
+  void removeMatchedUser(String userId) {
+    _eventParticipants.removeWhere((user) => user.uid == userId);
+    notifyListeners();
+  }
+
   void _listenToEventParticipants(String currentUserId) {
     if (_currentEvent == null) return;
     _participantsSubscription?.cancel();

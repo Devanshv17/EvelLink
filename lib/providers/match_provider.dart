@@ -55,7 +55,15 @@ class MatchProvider with ChangeNotifier {
     final otherUserId = match.getOtherUserId(currentUserId);
     return _matchedUsers[otherUserId];
   }
-
+  MatchModel? getMatchWithUser(String otherUserId) {
+    try {
+      return _matches.firstWhere(
+            (match) => match.users.contains(otherUserId),
+      );
+    } catch (e) {
+      return null;
+    }
+  }
   void clearMatches() {
     _matchesSubscription?.cancel();
     _matches = [];
