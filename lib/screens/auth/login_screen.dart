@@ -41,13 +41,16 @@ class LoginScreen extends StatelessWidget {
                   ),
                   child: Column(
                     children: [
-                      Icon(
-                        Icons.favorite,
-                        size: 60,
-                        color: AppConstants.primaryColor,
+                      // --- CHANGE HERE ---
+                      // Replaced the Icon with your Image asset
+                      Image.asset(
+                        'assets/logo_dark.png',
+                        height: 60, // You can adjust the size as needed
                       ),
+                      // --- END OF CHANGE ---
                       const SizedBox(height: 16),
                       Text(
+                        // Assuming AppConstants.appName is "EveLink" based on the request
                         AppConstants.appName,
                         style: TextStyle(
                           fontSize: 32,

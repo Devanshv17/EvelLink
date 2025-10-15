@@ -46,7 +46,7 @@ class _ProfileTypeSelectionScreenState extends State<ProfileTypeSelectionScreen>
             const SizedBox(height: 32),
             
             Text(
-              'What brings you to FestiveLink?',
+              'What brings you to EveLink?',
               style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,

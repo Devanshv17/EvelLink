@@ -13,13 +13,13 @@ void main() async {
 
   final authService = AuthService();
 
-  runApp(FestiveLinkApp(authService: authService));
+  runApp(EveLinkApp(authService: authService));
 }
 
-class FestiveLinkApp extends StatelessWidget {
+class EveLinkApp extends StatelessWidget {
   final AuthService authService;
 
-  const FestiveLinkApp({
+  const EveLinkApp({
     super.key,
     required this.authService,
   });
