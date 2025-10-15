@@ -44,7 +44,7 @@ class LoginScreen extends StatelessWidget {
                       // --- CHANGE HERE ---
                       // Replaced the Icon with your Image asset
                       Image.asset(
-                        'assets/logo_dark.png',
+                        'assets/images/logo_light.png',
                         height: 60, // You can adjust the size as needed
                       ),
                       // --- END OF CHANGE ---
