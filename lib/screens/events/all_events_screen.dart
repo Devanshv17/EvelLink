@@ -1,10 +1,10 @@
-import 'package:evelink/models/event_model.dart';
 import 'package:evelink/providers/all_events_provider.dart';
-import 'package:evelink/screens/events/event_detail_screen.dart';
-import 'package:evelink/utils/app_constants.dart';
-import 'package:evelink/widgets/event_card.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../utils/utils.dart';
+import '../../widgets/widgets.dart';
+import 'event_detail_screen.dart';
+import '../../models/models.dart';
 
 class AllEventsScreen extends StatefulWidget {
   const AllEventsScreen({super.key});
@@ -14,164 +14,190 @@ class AllEventsScreen extends StatefulWidget {
 }
 
 class _AllEventsScreenState extends State<AllEventsScreen> {
+  final _searchController = TextEditingController();
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      Provider.of<AllEventsProvider>(context, listen: false).listenToAllEvents();
+      final provider = Provider.of<AllEventsProvider>(context, listen: false);
+      // Use the new stream-based method
+      provider.listenToAllEvents();
+      // Add listener to update provider on search query change
+      _searchController.addListener(() {
+        provider.updateSearchQuery(_searchController.text);
+      });
     });
   }
 
   @override
   void dispose() {
-    Provider.of<AllEventsProvider>(context, listen: false).stopListening();
+    _searchController.dispose();
+    // The provider's dispose method is called automatically.
+    // The incorrect call to stopListening() has been removed.
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: SafeArea(
-        child: CustomScrollView(
-          slivers: [
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildSearchBar(),
-                    const SizedBox(height: 24),
-                    const Text('Mega Events', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-                  ],
-                ),
-              ),
-            ),
-            SliverToBoxAdapter(
-              child: _buildMegaEventsCarousel(),
-            ),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('Explore Events', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 16),
-                    _buildFilterChips(),
-                  ],
-                ),
-              ),
-            ),
-            _buildHorizontalEventList(),
-          ],
-        ),
+      appBar: AppBar(
+        title: const Text('Find Events'),
+        centerTitle: true,
+        elevation: 0,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        foregroundColor: AppConstants.textPrimary,
       ),
-    );
-  }
-
-  Widget _buildSearchBar() {
-    return TextField(
-      decoration: InputDecoration(
-        hintText: 'Search for events...',
-        prefixIcon: const Icon(Icons.search),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(AppConstants.borderRadius),
-          borderSide: BorderSide.none,
-        ),
-        filled: true,
-        fillColor: Theme.of(context).scaffoldBackgroundColor == Colors.white ? Colors.grey[200] : Colors.grey[800],
-      ),
-    );
-  }
-
-  Widget _buildMegaEventsCarousel() {
-    return Consumer<AllEventsProvider>(
-      builder: (context, provider, child) {
-        if (provider.isLoading && provider.allEvents.isEmpty) {
-          return const SizedBox(height: 200, child: Center(child: CircularProgressIndicator()));
-        }
-        final megaEvents = provider.allEvents.take(3).toList();
-        if (megaEvents.isEmpty) {
-          return const SizedBox.shrink();
-        }
-        return SizedBox(
-          height: MediaQuery.of(context).size.height * 0.3,
-          child: PageView.builder(
-            itemCount: megaEvents.length,
-            itemBuilder: (context, index) {
-              return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                child: EventCard(
-                  event: megaEvents[index],
-                  isLarge: true,
-                  onTap: () => _navigateToEventDetail(megaEvents[index]),
-                ),
-              );
-            },
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildFilterChips() {
-    final filters = ['Music', 'Art', 'Tech', 'Food', 'Sports', 'Conference'];
-    return SizedBox(
-      height: 40,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: filters.length,
-        itemBuilder: (context, index) {
-          return Chip(
-            label: Text(filters[index]),
-            backgroundColor: Colors.white,
-            side: BorderSide(color: Colors.grey[300]!),
-          );
-        },
-        separatorBuilder: (context, index) => const SizedBox(width: 8),
-      ),
-    );
-  }
-
-  Widget _buildHorizontalEventList() {
-    return SliverToBoxAdapter(
-      child: Consumer<AllEventsProvider>(
+      body: Consumer<AllEventsProvider>(
         builder: (context, provider, child) {
           if (provider.isLoading && provider.allEvents.isEmpty) {
-            return const SizedBox.shrink();
+            return const Center(child: CircularProgressIndicator());
           }
-          final otherEvents = provider.allEvents.skip(3).toList();
-          if (otherEvents.isEmpty) {
-            return const SizedBox.shrink();
+
+          if (provider.error != null) {
+            return Center(child: Text('An error occurred: ${provider.error}'));
           }
-          return SizedBox(
-            height: 220,
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              itemCount: otherEvents.length,
-              itemBuilder: (context, index) {
-                return SizedBox(
-                  width: 160,
-                  child: Padding(
-                    padding: const EdgeInsets.only(right: 12.0),
-                    child: EventCard(
-                      event: otherEvents[index],
-                      onTap: () => _navigateToEventDetail(otherEvents[index]),
+
+          final filteredEvents = provider.filteredEvents;
+          final megaEvents = filteredEvents.where((e) => e.isMegaEvent).toList();
+          final otherEvents = filteredEvents.where((e) => !e.isMegaEvent).toList();
+
+          return RefreshIndicator(
+            onRefresh: () async => provider.listenToAllEvents(),
+            child: ListView(
+              padding: const EdgeInsets.symmetric(vertical: 16.0),
+              children: [
+                // Search Bar
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  child: TextField(
+                    controller: _searchController,
+                    decoration: InputDecoration(
+                      hintText: 'Search by name or tag...',
+                      prefixIcon: const Icon(Icons.search),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(30.0),
+                        borderSide: BorderSide.none,
+                      ),
+                      filled: true,
+                      fillColor: Colors.grey[200],
+                      contentPadding: EdgeInsets.zero,
                     ),
                   ),
-                );
-              },
+                ),
+                const SizedBox(height: 24),
+
+                // Mega Events Carousel
+                if (megaEvents.isNotEmpty) ...[
+                  _buildSectionHeader('Mega Events'),
+                  SizedBox(
+                    height: MediaQuery.of(context).size.height * 0.3,
+                    child: PageView.builder(
+                      controller: PageController(viewportFraction: 0.85),
+                      itemCount: megaEvents.length,
+                      itemBuilder: (context, index) {
+                        final event = megaEvents[index];
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                          child: EventCard(
+                            event: event,
+                            isLarge: true,
+                            onTap: () => _navigateToEventDetail(event),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                ],
+
+                // Filter Chips
+                _buildSectionHeader('Explore'),
+                SizedBox(
+                  height: 40,
+                  child: ListView(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                    children: [
+                      _buildFilterChip(context, 'All', provider.selectedTag == null),
+                      ...provider.uniqueTags.map((tag) => _buildFilterChip(context, tag, provider.selectedTag == tag)),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+
+                // Other Events List
+                if (otherEvents.isNotEmpty) ...[
+                  _buildSectionHeader('Explore Events'),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                    child: Column(
+                      children: otherEvents.map((event) => Padding(
+                        padding: const EdgeInsets.only(bottom: 12.0),
+                        child: SizedBox(
+                          height: 120, // Reduced height
+                          child: EventCard(
+                              event: event,
+                              isLarge: false,
+                              onTap: () => _navigateToEventDetail(event)
+                          ),
+                        ),
+                      )).toList(),
+                    ),
+                  ),
+                ],
+
+                if (filteredEvents.isEmpty && provider.allEvents.isNotEmpty)
+                  const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(32.0),
+                      child: Text("No events match your search or filter."),
+                    ),
+                  )
+              ],
             ),
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildFilterChip(BuildContext context, String label, bool isSelected) {
+    final provider = Provider.of<AllEventsProvider>(context, listen: false);
+    return Padding(
+      padding: const EdgeInsets.only(right: 8.0),
+      child: ChoiceChip(
+        label: Text(label),
+        selected: isSelected,
+        onSelected: (selected) {
+          provider.selectTag(label == 'All' ? null : label);
+        },
+        selectedColor: AppConstants.primaryColor,
+        labelStyle: TextStyle(
+          color: isSelected ? Colors.white : AppConstants.textPrimary,
+        ),
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: BorderSide(color: isSelected ? AppConstants.primaryColor : Colors.grey.shade300),
+        ),
+      ),
+    );
+  }
+
+  Padding _buildSectionHeader(String title) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16.0, 0, 16.0, 12.0),
+      child: Text(
+        title,
+        style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
       ),
     );
   }
 
   void _navigateToEventDetail(EventModel event) {
-    Navigator.of(context).push(
+    Navigator.push(
+      context,
       MaterialPageRoute(
         builder: (context) => EventDetailScreen(event: event),
       ),
