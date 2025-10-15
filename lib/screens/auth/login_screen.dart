@@ -1,49 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import '../../services/services.dart';
 import '../../utils/utils.dart';
+import 'login_phone_screen.dart';
 
-class LoginScreen extends StatefulWidget {
+class LoginScreen extends StatelessWidget {
   const LoginScreen({super.key});
-
-  @override
-  State<LoginScreen> createState() => _LoginScreenState();
-}
-
-class _LoginScreenState extends State<LoginScreen> {
-  bool _isLoading = false;
-
-  Future<void> _signInWithGoogle() async {
-    setState(() {
-      _isLoading = true;
-    });
-
-    try {
-      final authService = Provider.of<AuthService>(context, listen: false);
-      final user = await authService.signInWithGoogle();
-      
-      if (user == null) {
-        if (mounted) {
-          Helpers.showSnackBar(context, 'Sign in was cancelled', isError: true);
-        }
-      }
-      // AuthWrapper will handle navigation based on profile status
-    } catch (e) {
-      if (mounted) {
-        Helpers.showSnackBar(context, 'Sign in failed: $e', isError: true);
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       body: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
@@ -61,8 +26,6 @@ class _LoginScreenState extends State<LoginScreen> {
             child: Column(
               children: [
                 const Spacer(),
-                
-                // App Logo and Title
                 Container(
                   padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
@@ -104,36 +67,16 @@ class _LoginScreenState extends State<LoginScreen> {
                     ],
                   ),
                 ),
-                
-                const Spacer(),
-                
-                // Google Sign In Button
+                const SizedBox(height: 48),
                 SizedBox(
                   width: double.infinity,
                   height: 56,
-                  child: ElevatedButton.icon(
-                    onPressed: _isLoading ? null : _signInWithGoogle,
-                    icon: _isLoading 
-                        ? SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                            ),
-                          )
-                        : Image.asset(
-                            'assets/images/google_logo.png',
-                            height: 24,
-                            width: 24,
-                          ),
-                    label: Text(
-                      _isLoading ? 'Signing In...' : 'Continue with Google',
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const LoginPhoneScreen()),
+                      );
+                    },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.white,
                       foregroundColor: AppConstants.textPrimary,
@@ -141,12 +84,13 @@ class _LoginScreenState extends State<LoginScreen> {
                         borderRadius: BorderRadius.circular(AppConstants.borderRadius),
                       ),
                     ),
+                    child: const Text(
+                      'Continue',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                    ),
                   ),
                 ),
-                
                 const SizedBox(height: 24),
-                
-                // Terms and Privacy
                 Text(
                   'By continuing, you agree to our Terms of Service\nand Privacy Policy',
                   style: TextStyle(
@@ -155,7 +99,6 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   textAlign: TextAlign.center,
                 ),
-                
                 const SizedBox(height: 32),
               ],
             ),

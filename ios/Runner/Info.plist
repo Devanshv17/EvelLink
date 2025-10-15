@@ -45,5 +45,7 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>NSPhoneUsageDescription</key>
+    <string>This app needs access to phone to verify your phone number</string>
 </dict>
 </plist>

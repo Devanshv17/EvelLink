@@ -18,7 +18,11 @@ class AuthWrapper extends StatelessWidget {
       stream: authService.authStateChanges,
       builder: (context, authSnapshot) {
         if (authSnapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(body: Center(child: CircularProgressIndicator()));
+          return const Scaffold(
+            body: Center(
+              child: CircularProgressIndicator(),
+            ),
+          );
         }
 
         if (authSnapshot.hasData) {
@@ -33,6 +37,7 @@ class AuthWrapper extends StatelessWidget {
 
 class ProfileWrapper extends StatefulWidget {
   final String uid;
+
   const ProfileWrapper({super.key, required this.uid});
 
   @override
@@ -54,11 +59,18 @@ class _ProfileWrapperState extends State<ProfileWrapper> {
   Widget build(BuildContext context) {
     return Consumer<UserProvider>(
       builder: (context, userProvider, child) {
-        if (userProvider.isLoading && userProvider.currentUser == null) {
-          return const Scaffold(body: Center(child: CircularProgressIndicator()));
+        // Show loading until we have definitive user data
+        if (userProvider.isLoading) {
+          return const Scaffold(
+            body: Center(
+              child: CircularProgressIndicator(),
+            ),
+          );
         }
 
-        if (userProvider.hasProfile) {
+        // Check if user profile exists (not just hasProfile boolean)
+        // This prevents flicker by checking actual user data existence
+        if (userProvider.currentUser != null) {
           return MainAppLoader(uid: widget.uid);
         } else {
           return const ProfileTypeSelectionScreen();
@@ -70,6 +82,7 @@ class _ProfileWrapperState extends State<ProfileWrapper> {
 
 class MainAppLoader extends StatefulWidget {
   final String uid;
+
   const MainAppLoader({super.key, required this.uid});
 
   @override
@@ -82,7 +95,8 @@ class _MainAppLoaderState extends State<MainAppLoader> {
   @override
   void initState() {
     super.initState();
-    _rejoinFuture = Provider.of<EventProvider>(context, listen: false).tryRejoinPreviousEvent(widget.uid);
+    _rejoinFuture = Provider.of<EventProvider>(context, listen: false)
+        .tryRejoinPreviousEvent(widget.uid);
   }
 
   @override
@@ -91,8 +105,13 @@ class _MainAppLoaderState extends State<MainAppLoader> {
       future: _rejoinFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(body: Center(child: CircularProgressIndicator()));
+          return const Scaffold(
+            body: Center(
+              child: CircularProgressIndicator(),
+            ),
+          );
         }
+
         return const MainNavigationScreen();
       },
     );

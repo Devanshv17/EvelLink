@@ -5,6 +5,8 @@ import 'package:evelink/utils/helpers.dart';
 import 'package:evelink/widgets/private_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../auth/auth_wrapper.dart';
+
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -113,6 +115,12 @@ class ProfileScreen extends StatelessWidget {
                   if (shouldSignOut == true && context.mounted) {
                     final authService = Provider.of<AuthService>(context, listen: false);
                     await authService.signOut(context);
+
+                    // Navigate to main/front screen after logout (replace AuthWrapper with your init screen if needed)
+                    Navigator.of(context).pushAndRemoveUntil(
+                      MaterialPageRoute(builder: (_) => const AuthWrapper()),
+                          (route) => false,
+                    );
                   }
                 },
               ),
